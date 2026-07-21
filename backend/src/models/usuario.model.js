@@ -20,10 +20,10 @@ async function findById(id) {
 }
 
 async function findByLogin(loginValue) {
-  // Permite iniciar sesión con username o email
+  // Solo permite iniciar sesión con username (no con email)
   const [rows] = await pool.query(
-    'SELECT * FROM usuarios WHERE (username = ? OR email = ?) LIMIT 1',
-    [loginValue, loginValue]
+    'SELECT * FROM usuarios WHERE username = ? LIMIT 1',
+    [loginValue]
   );
   return rows[0] || null;
 }

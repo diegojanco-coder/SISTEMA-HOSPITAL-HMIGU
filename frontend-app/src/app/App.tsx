@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Eye, EyeOff, Plus, Lock, Mail, Sparkles, Shield, Activity, Syringe } from 'lucide-react';
+import { Eye, EyeOff, Plus, Lock, Mail, Sparkles, Shield, Activity, Syringe, Stethoscope } from 'lucide-react';
 import Dashboard from './components/Dashboard';
 import { useAuth } from '../lib/auth-context';
 
@@ -209,15 +209,14 @@ export default function App() {
 
           {/* Info de credenciales de prueba */}
           <div
-            className="p-4 rounded-xl bg-blue-50 border border-blue-200 text-blue-700 text-sm mb-6"
-            style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}
-          >
-            <strong>Credenciales de prueba (datos semilla):</strong>
-            <div className="mt-2 space-y-1 text-xs">
-              <div>👨‍⚕️ Admin: admin@hmgu.gob.bo / Admin123!</div>
-              <div>👩‍⚕️ Enfermería: enfermeria@hmgu.gob.bo / Admin123!</div>
-            </div>
-          </div>
+  className="p-4 rounded-xl bg-blue-50 border border-blue-200 text-blue-700 text-sm mb-6 flex items-center gap-3"
+  style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}
+>
+  <div className="p-2 rounded-lg bg-blue-100 shrink-0">
+    <Stethoscope className="w-5 h-5 text-blue-600" />
+  </div>
+  <span>Bienvenido/a. Ingresá con tu usuario y contraseña asignados por el hospital.</span>
+</div>
 
           {/* Formulario */}
           <form onSubmit={handleLogin} className="flex flex-col gap-5">
@@ -228,7 +227,7 @@ export default function App() {
                 className="text-gray-700 text-sm font-semibold"
                 style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}
               >
-                Correo Institucional o Usuario
+                Usuario
               </label>
               <div className="relative">
                 <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none">
@@ -239,7 +238,7 @@ export default function App() {
                   type="text"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@hmgu.gob.bo"
+                  placeholder="usuario"
                   required
                   className="w-full pl-12 pr-4 py-3.5 rounded-xl border-2 border-gray-200 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10 outline-none transition-all"
                   style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: '0.95rem' }}
