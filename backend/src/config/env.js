@@ -33,5 +33,16 @@ module.exports = {
     mysqldumpPath: process.env.MYSQLDUMP_PATH || 'mysqldump'
   },
 
-  alertasCron: process.env.ALERTAS_CRON || '0 6 * * *'
+alertasCron: process.env.ALERTAS_CRON || '0 6 * * *',
+
+  citasCron: process.env.CITAS_CRON || '0 8 * * *',
+
+  notificaciones: {
+    emailEnabled: process.env.NOTIF_EMAIL_ENABLED === 'true',
+    smtpHost: process.env.SMTP_HOST || 'smtp.gmail.com',
+    smtpPort: Number(process.env.SMTP_PORT) || 465,
+    smtpUser: process.env.SMTP_USER || '',
+    smtpPassword: process.env.SMTP_PASSWORD || '',
+    fromName: process.env.SMTP_FROM_NAME || 'Sistema de Vacunación'
+  }
 };
