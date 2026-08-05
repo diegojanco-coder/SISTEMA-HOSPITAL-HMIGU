@@ -65,10 +65,12 @@ async function create(data) {
   const [result] = await pool.query(
     `INSERT INTO pacientes
       (codigo_paciente, nombres, apellidos, carnet_identidad, fecha_nacimiento, sexo,
+       discapacidad, observaciones_generales,
        direccion, telefono_contacto, lugar_nacimiento, creado_por)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [codigo, data.nombres, data.apellidos, data.carnetIdentidad || null, data.fechaNacimiento,
-     data.sexo, data.direccion || null, data.telefonoContacto || null, data.lugarNacimiento || null,
+     data.sexo, data.discapacidad || null, data.observacionesGenerales || null,
+     data.direccion || null, data.telefonoContacto || null, data.lugarNacimiento || null,
      data.creadoPor || null]
   );
   return findById(result.insertId);
@@ -77,9 +79,11 @@ async function create(data) {
 async function update(id, data) {
   await pool.query(
     `UPDATE pacientes SET nombres = ?, apellidos = ?, carnet_identidad = ?, fecha_nacimiento = ?,
-       sexo = ?, direccion = ?, telefono_contacto = ?, lugar_nacimiento = ?
+       sexo = ?, discapacidad = ?, observaciones_generales = ?,
+       direccion = ?, telefono_contacto = ?, lugar_nacimiento = ?
      WHERE id = ?`,
     [data.nombres, data.apellidos, data.carnetIdentidad || null, data.fechaNacimiento, data.sexo,
+     data.discapacidad || null, data.observacionesGenerales || null,
      data.direccion || null, data.telefonoContacto || null, data.lugarNacimiento || null, id]
   );
   return findById(id);

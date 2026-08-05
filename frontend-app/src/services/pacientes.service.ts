@@ -22,6 +22,8 @@ export interface DatosPaciente {
   carnetIdentidad?: string;
   fechaNacimiento: string;
   sexo: 'M' | 'F';
+  discapacidad?: string;
+  observacionesGenerales?: string;
   direccion?: string;
   telefonoContacto?: string;
 }

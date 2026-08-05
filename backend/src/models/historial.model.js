@@ -30,20 +30,21 @@ async function existeRegistro(pacienteId, dosisId) {
 
 async function create(data) {
   const [result] = await pool.query(
-    `INSERT INTO historial_vacunacion (paciente_id, dosis_id, usuario_id, fecha_aplicacion, lote, establecimiento, observaciones)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO historial_vacunacion (paciente_id, dosis_id, usuario_id, fecha_aplicacion, lote, peso_kg, talla_cm, establecimiento, observaciones)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [data.pacienteId, data.dosisId, data.usuarioId || null, data.fechaAplicacion,
-     data.lote || null, data.establecimiento || 'Hospital Materno Germán Urquidi', data.observaciones || null]
+     data.lote || null, data.pesoKg || null, data.tallaCm || null,
+     data.establecimiento || 'Hospital Materno Germán Urquidi', data.observaciones || null]
   );
   return findById(result.insertId);
 }
 
 async function update(id, data) {
   await pool.query(
-    `UPDATE historial_vacunacion SET fecha_aplicacion = ?, lote = ?, establecimiento = ?, observaciones = ?
+    `UPDATE historial_vacunacion SET fecha_aplicacion = ?, lote = ?, peso_kg = ?, talla_cm = ?, establecimiento = ?, observaciones = ?
      WHERE id = ?`,
-    [data.fechaAplicacion, data.lote || null, data.establecimiento || 'Hospital Materno Germán Urquidi',
-     data.observaciones || null, id]
+    [data.fechaAplicacion, data.lote || null, data.pesoKg || null, data.tallaCm || null,
+     data.establecimiento || 'Hospital Materno Germán Urquidi', data.observaciones || null, id]
   );
   return findById(id);
 }

@@ -11,6 +11,8 @@ export interface DatosAplicacion {
   dosisId: number;
   fechaAplicacion: string;
   lote?: string;
+  pesoKg?: number;
+  tallaCm?: number;
   establecimiento?: string;
   observaciones?: string;
 }
@@ -18,4 +20,14 @@ export interface DatosAplicacion {
 export async function registrarAplicacion(payload: DatosAplicacion) {
   const { data } = await api.post<{ data: HistorialItem }>('/historial', payload);
   return data.data;
+}
+export interface DatosCita {
+  pacienteId: number;
+  dosisId: number;
+  fechaProgramada: string;
+}
+
+export async function programarCita(payload: DatosCita) {
+  const { data } = await api.post('/citas', payload);
+  return data;
 }

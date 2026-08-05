@@ -10,7 +10,7 @@ import {
   type DatosPaciente,
 } from '../../../services/pacientes.service';
 import { crearTutor } from '../../../services/tutores.service';
-import { listarHistorialPorPaciente, registrarAplicacion } from '../../../services/historial.service';
+import { listarHistorialPorPaciente, registrarAplicacion, programarCita } from '../../../services/historial.service';
 import { useAuth } from '../../../lib/auth-context';
 import type { EsquemaPaciente, HistorialItem, Paciente } from '../../../lib/types';
 import StatusBadge from '../shared/StatusBadge';
@@ -200,15 +200,17 @@ function PatientFormModal({
 }: { modo: 'crear' | 'editar'; paciente?: Paciente; onClose: () => void; onSaved: () => void }) {
   const [guardando, setGuardando] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [form, setForm] = useState({
-    nombres: paciente?.nombres || '',
-    apellidos: paciente?.apellidos || '',
-    carnetIdentidad: paciente?.carnet_identidad || '',
-    fechaNacimiento: paciente?.fecha_nacimiento || '',
-    sexo: (paciente?.sexo || 'F') as 'M' | 'F',
-    direccion: paciente?.direccion || '',
-    telefonoContacto: paciente?.telefono_contacto || '',
-  });
+const [form, setForm] = useState({
+  nombres: paciente?.nombres || '',
+  apellidos: paciente?.apellidos || '',
+  carnetIdentidad: paciente?.carnet_identidad || '',
+  fechaNacimiento: paciente?.fecha_nacimiento || '',
+  sexo: (paciente?.sexo || 'F') as 'M' | 'F',
+  discapacidad: paciente?.discapacidad || '',
+  observacionesGenerales: paciente?.observaciones_generales || '',
+  direccion: paciente?.direccion || '',
+  telefonoContacto: paciente?.telefono_contacto || '',
+});
   const [tutor, setTutor] = useState({
     nombres: '', apellidos: '', carnetIdentidad: '', parentesco: 'madre' as const, telefono: '', email: '',
   });
@@ -280,6 +282,14 @@ function PatientFormModal({
                   <option value="M">Masculino</option>
                 </select>
               </div>
+<div>
+  <label className={labelClass} style={fontBody}>Discapacidad</label>
+  <input value={form.discapacidad} onChange={(e) => setForm({ ...form, discapacidad: e.target.value })} placeholder="Ninguna, o especificar" className={inputClass} style={fontBody} />
+</div>
+<div className="md:col-span-2">
+  <label className={labelClass} style={fontBody}>Observaciones Generales / Aptitud</label>
+  <textarea value={form.observacionesGenerales} onChange={(e) => setForm({ ...form, observacionesGenerales: e.target.value })} rows={2} className={`${inputClass} resize-none`} style={fontBody} />
+</div>
               <div>
                 <label className={labelClass} style={fontBody}>Teléfono de Contacto</label>
                 <input value={form.telefonoContacto} onChange={(e) => setForm({ ...form, telefonoContacto: e.target.value })} className={inputClass} style={fontBody} />
@@ -350,6 +360,7 @@ export function PatientProfileModal({
 }: { paciente: Paciente; onClose: () => void; onEditar: () => void; onRegistrarVacuna: () => void }) {
   const [esquema, setEsquema] = useState<EsquemaPaciente | null>(null);
   const [historial, setHistorial] = useState<HistorialItem[]>([]);
+  const [citaDosis, setCitaDosis] = useState<{ dosisId: number; vacunaNombre: string; nombreDosis: string } | null>(null);
   const [cargando, setCargando] = useState(true);
 
   useEffect(() => {
@@ -479,7 +490,7 @@ export function PatientProfileModal({
                       </div>
                       <div className="flex items-center gap-3">
                         <StatusBadge estado={d.estado} />
-                        <button onClick={onRegistrarVacuna} className="px-4 py-2 rounded-lg bg-yellow-500 text-white text-sm font-semibold hover:bg-yellow-600 transition-colors">Programar</button>
+                        <button onClick={() => setCitaDosis({ dosisId: d.dosisId, vacunaNombre: d.vacunaNombre, nombreDosis: d.nombreDosis })} className="px-4 py-2 rounded-lg bg-blue-500 text-white text-sm font-semibold hover:bg-blue-600 transition-colors">Programar Cita</button>
                       </div>
                     </div>
                   ))}
@@ -493,12 +504,79 @@ export function PatientProfileModal({
             <button onClick={() => descargarCarnetPDF(paciente.id)} className="px-6 py-3 rounded-lg bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold hover:scale-105 transition-transform shadow-lg">Generar Carnet PDF</button>
             <button onClick={onClose} className="px-6 py-3 rounded-lg bg-gray-600 text-white font-semibold hover:bg-gray-700 transition-colors">Cerrar</button>
           </div>
+          {citaDosis && (
+  <ProgramarCitaModal
+    paciente={paciente}
+    dosis={citaDosis}
+    onClose={() => setCitaDosis(null)}
+    onSaved={() => { setCitaDosis(null); alert('Cita programada correctamente.'); }}
+  />
+)}
         </div>
       </div>
     </div>
   );
 }
 
+// ---------------------------------------------------------------------
+// Modal: Programar cita para la próxima dosis
+// ---------------------------------------------------------------------
+export function ProgramarCitaModal({
+  paciente, dosis, onClose, onSaved,
+}: { paciente: Paciente; dosis: { dosisId: number; vacunaNombre: string; nombreDosis: string }; onClose: () => void; onSaved: () => void }) {
+  const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10));
+  const [guardando, setGuardando] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setGuardando(true);
+    setErrorMsg('');
+    try {
+      await programarCita({
+        pacienteId: paciente.id,
+        dosisId: dosis.dosisId,
+        fechaProgramada: fecha,
+      });
+      onSaved();
+    } catch (err: any) {
+      setErrorMsg(err?.response?.data?.message || 'No se pudo programar la cita');
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl max-w-md w-full">
+        <div className="bg-gradient-to-r from-blue-500 to-cyan-600 px-6 py-4 flex items-center justify-between rounded-t-2xl">
+          <div className="text-white">
+            <h3 className="text-xl font-bold" style={fontHeading}>Programar Cita</h3>
+            <p className="text-white/90 text-sm" style={fontBody}>{dosis.vacunaNombre} - {dosis.nombreDosis}</p>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-lg bg-white/20 hover:bg-white/30 transition-colors">
+            <X className="w-6 h-6 text-white" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {errorMsg && <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">{errorMsg}</div>}
+          <div>
+            <label className={labelClass} style={fontBody}>Fecha de la cita *</label>
+            <input required type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className={inputClass} style={fontBody} />
+            <p className="text-xs text-gray-400 mt-1">El tutor recibirá un correo de recordatorio un día antes.</p>
+          </div>
+          <div className="flex items-center justify-end gap-3 border-t border-gray-200 pt-4">
+            <button type="button" onClick={onClose} className="px-6 py-3 rounded-lg border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition-colors">Cancelar</button>
+            <button type="submit" disabled={guardando} className="px-6 py-3 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-600 text-white font-semibold hover:scale-105 transition-transform shadow-lg disabled:opacity-60">
+              {guardando ? 'Guardando...' : 'Programar'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
 // ---------------------------------------------------------------------
 // Modal: Registrar aplicación de vacuna (dosis pendientes reales)
 // ---------------------------------------------------------------------
@@ -509,6 +587,8 @@ export function AddVaccineModal({
   const [dosisId, setDosisId] = useState('');
   const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10));
   const [lote, setLote] = useState('');
+  const [pesoKg, setPesoKg] = useState('');
+  const [tallaCm, setTallaCm] = useState('');
   const [observaciones, setObservaciones] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -526,12 +606,14 @@ export function AddVaccineModal({
     setErrorMsg('');
     try {
       await registrarAplicacion({
-        pacienteId: paciente.id,
-        dosisId: Number(dosisId),
-        fechaAplicacion: fecha,
-        lote,
-        observaciones,
-      });
+  pacienteId: paciente.id,
+  dosisId: Number(dosisId),
+  fechaAplicacion: fecha,
+  lote,
+  pesoKg: pesoKg ? Number(pesoKg) : undefined,
+  tallaCm: tallaCm ? Number(tallaCm) : undefined,
+  observaciones,
+    });
       onSaved();
     } catch (err: any) {
       setErrorMsg(err?.response?.data?.message || 'No se pudo registrar la vacuna');
@@ -577,6 +659,14 @@ export function AddVaccineModal({
               <label className={labelClass} style={fontBody}>Número de Lote</label>
               <input value={lote} onChange={(e) => setLote(e.target.value)} placeholder="Ej: PNT-2026-042" className={inputClass} style={fontBody} />
             </div>
+            <div>
+  <label className={labelClass} style={fontBody}>Peso (kg)</label>
+  <input type="number" step="0.01" value={pesoKg} onChange={(e) => setPesoKg(e.target.value)} placeholder="Ej: 6.5" className={inputClass} style={fontBody} />
+</div>
+<div>
+  <label className={labelClass} style={fontBody}>Talla (cm)</label>
+  <input type="number" step="0.1" value={tallaCm} onChange={(e) => setTallaCm(e.target.value)} placeholder="Ej: 62.5" className={inputClass} style={fontBody} />
+</div>
             <div className="md:col-span-2">
               <label className={labelClass} style={fontBody}>Observaciones / Reacciones</label>
               <textarea value={observaciones} onChange={(e) => setObservaciones(e.target.value)} rows={3} className={`${inputClass} resize-none`} style={fontBody} />

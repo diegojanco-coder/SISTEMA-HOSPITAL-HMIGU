@@ -41,6 +41,8 @@ export interface Paciente {
   carnet_identidad: string | null;
   fecha_nacimiento: string;
   sexo: 'M' | 'F';
+  discapacidad: string | null;
+  observaciones_generales: string | null;
   direccion: string | null;
   telefono_contacto: string | null;
   estado: 'activo' | 'inactivo';
