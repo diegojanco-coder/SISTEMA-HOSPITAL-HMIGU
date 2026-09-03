@@ -3,6 +3,7 @@ const pacienteModel = require('../models/paciente.model');
 const dosisModel = require('../models/dosis.model');
 const historialModel = require('../models/historial.model');
 const motor = require('./motorVacunacion.service');
+const notificacionService = require('./notificacion.service');
 
 const MAPA_SEMAFORO = {
   proxima: 'amarillo',
@@ -33,13 +34,18 @@ async function generarAlertasPaciente(pacienteId) {
       await alertaModel.eliminarPorPacienteDosis(pacienteId, item.dosisId);
       continue;
     }
-    await alertaModel.upsert({
+    const cambioAlerta = await alertaModel.upsert({
       pacienteId,
       dosisId: item.dosisId,
       estadoSemaforo: MAPA_SEMAFORO[item.estado],
       fechaLimite: item.fechaLimite,
       mensaje: MENSAJES[item.estado](item.vacunaNombre, item.nombreDosis)
     });
+    if (cambioAlerta) {
+      const tutores = await pacienteModel.findTutoresByPacienteId(pacienteId);
+      const destinatario = paciente.email || tutores.find((t) => t.email)?.email;
+      await notificacionService.enviarAlertaVacuna({ destinatario, paciente: `${paciente.nombres} ${paciente.apellidos}`, mensaje: MENSAJES[item.estado](item.vacunaNombre, item.nombreDosis), estado: item.estado });
+    }
   }
 
   return { estadoGeneral, resumen };
