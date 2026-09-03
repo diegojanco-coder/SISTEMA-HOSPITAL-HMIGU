@@ -12,7 +12,9 @@ const reglasTutor = [
   body('nombres').notEmpty(),
   body('apellidos').notEmpty(),
   body('carnetIdentidad').notEmpty().withMessage('El carnet de identidad es obligatorio'),
-  body('parentesco').isIn(['padre', 'madre', 'tutor_legal', 'otro'])
+  body('parentesco').isIn(['padre', 'madre', 'tutor_legal', 'otro']),
+  body('telefono').notEmpty().withMessage('El teléfono del tutor es obligatorio'),
+  body('email').isEmail().withMessage('El correo electrónico del tutor es obligatorio y debe ser válido')
 ];
 
 router.get('/', ctrl.listar);
