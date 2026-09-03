@@ -11,6 +11,8 @@ const carnetRoutes = require('./carnet.routes'); // define rutas anidadas /pacie
 const reporteRoutes = require('./reporte.routes');
 const auditoriaRoutes = require('./auditoria.routes');
 const backupRoutes = require('./backup.routes');
+const citaRoutes = require('./cita.routes');
+const loteRoutes = require('./lote.routes');
 
 const router = Router();
 
@@ -25,5 +27,7 @@ router.use('/alertas', alertaRoutes);
 router.use('/reportes', reporteRoutes);
 router.use('/auditoria', auditoriaRoutes);
 router.use('/backup', backupRoutes);
+router.use('/citas', citaRoutes);
+router.use('/lotes', loteRoutes);
 
 module.exports = router;
