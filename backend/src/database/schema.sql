@@ -50,6 +50,7 @@ CREATE TABLE pacientes (
     sexo                ENUM('M','F')       NOT NULL,
     direccion           VARCHAR(255)        NULL,
     telefono_contacto   VARCHAR(20)         NULL,
+    email               VARCHAR(150)        NULL,
     lugar_nacimiento    VARCHAR(150)        NULL,
     estado              ENUM('activo','inactivo') NOT NULL DEFAULT 'activo',
     creado_por          INT UNSIGNED        NULL,
@@ -74,8 +75,8 @@ CREATE TABLE tutores (
     apellidos           VARCHAR(100)        NOT NULL,
     carnet_identidad    VARCHAR(20)         NOT NULL,
     parentesco          ENUM('padre','madre','tutor_legal','otro') NOT NULL DEFAULT 'madre',
-    telefono            VARCHAR(20)         NULL,
-    email               VARCHAR(150)        NULL,
+    telefono            VARCHAR(20)         NOT NULL,
+    email               VARCHAR(150)        NOT NULL,
     direccion           VARCHAR(255)        NULL,
     estado              ENUM('activo','inactivo') NOT NULL DEFAULT 'activo',
     created_at          DATETIME            NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -139,6 +140,45 @@ CREATE TABLE dosis (
 CREATE INDEX idx_dosis_edad ON dosis (edad_recomendada_dias);
 
 -- ---------------------------------------------------------------------
+-- Tabla: lotes_vacuna (inventario físico por biológico)
+-- Un lote vencido, inactivo o sin existencias nunca puede utilizarse.
+-- ---------------------------------------------------------------------
+CREATE TABLE lotes_vacuna (
+    id                  INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    vacuna_id           INT UNSIGNED NOT NULL,
+    numero_lote         VARCHAR(50) NOT NULL,
+    fecha_vencimiento   DATE NOT NULL,
+    cantidad_disponible INT UNSIGNED NOT NULL,
+    estado              ENUM('activo','inactivo') NOT NULL DEFAULT 'activo',
+    created_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT uq_lote_vacuna UNIQUE (vacuna_id, numero_lote),
+    CONSTRAINT ck_lote_stock CHECK (cantidad_disponible >= 0),
+    CONSTRAINT fk_lote_vacuna FOREIGN KEY (vacuna_id) REFERENCES vacunas(id)
+        ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB;
+
+CREATE INDEX idx_lotes_disponibles ON lotes_vacuna (vacuna_id, fecha_vencimiento, cantidad_disponible);
+
+-- ---------------------------------------------------------------------
+-- Tabla: citas (una atención; puede incluir varias dosis aplicadas)
+-- ---------------------------------------------------------------------
+CREATE TABLE citas (
+    id                  INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    paciente_id         INT UNSIGNED NOT NULL,
+    usuario_id          INT UNSIGNED NOT NULL,
+    fecha_hora          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    observaciones       TEXT NULL,
+    created_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_cita_paciente FOREIGN KEY (paciente_id) REFERENCES pacientes(id)
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_cita_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+        ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB;
+
+CREATE INDEX idx_citas_paciente_fecha ON citas (paciente_id, fecha_hora);
+
+-- ---------------------------------------------------------------------
 -- Tabla: historial_vacunacion (aplicaciones reales)
 -- ---------------------------------------------------------------------
 CREATE TABLE historial_vacunacion (
@@ -146,8 +186,9 @@ CREATE TABLE historial_vacunacion (
     paciente_id         INT UNSIGNED  NOT NULL,
     dosis_id            INT UNSIGNED  NOT NULL,
     usuario_id          INT UNSIGNED  NULL,
+    cita_id             INT UNSIGNED  NOT NULL,
+    lote_vacuna_id      INT UNSIGNED  NOT NULL,
     fecha_aplicacion    DATE          NOT NULL,
-    lote                VARCHAR(50)   NULL,
     establecimiento     VARCHAR(150)  NOT NULL DEFAULT 'Hospital Materno Germán Urquidi',
     observaciones       TEXT          NULL,
     created_at          DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -159,6 +200,10 @@ CREATE TABLE historial_vacunacion (
         ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT fk_historial_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
         ON DELETE SET NULL ON UPDATE CASCADE
+    ,CONSTRAINT fk_historial_cita FOREIGN KEY (cita_id) REFERENCES citas(id)
+        ON DELETE RESTRICT ON UPDATE CASCADE
+    ,CONSTRAINT fk_historial_lote FOREIGN KEY (lote_vacuna_id) REFERENCES lotes_vacuna(id)
+        ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
 CREATE INDEX idx_historial_fecha ON historial_vacunacion (fecha_aplicacion);
