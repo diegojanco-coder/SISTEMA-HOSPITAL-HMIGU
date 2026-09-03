@@ -3,11 +3,12 @@ const { pool } = require('../config/db');
 async function findByPacienteId(pacienteId) {
   const [rows] = await pool.query(
     `SELECT h.*, d.nombre_dosis, d.numero_dosis, v.nombre AS vacuna_nombre, v.nombre_corto,
-            u.nombre_completo AS aplicado_por
+            u.nombre_completo AS aplicado_por, lv.numero_lote AS lote
      FROM historial_vacunacion h
      INNER JOIN dosis d ON d.id = h.dosis_id
      INNER JOIN vacunas v ON v.id = d.vacuna_id
      LEFT JOIN usuarios u ON u.id = h.usuario_id
+     INNER JOIN lotes_vacuna lv ON lv.id = h.lote_vacuna_id
      WHERE h.paciente_id = ?
      ORDER BY h.fecha_aplicacion ASC`,
     [pacienteId]
