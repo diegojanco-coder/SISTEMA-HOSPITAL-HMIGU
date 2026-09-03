@@ -1,4 +1,5 @@
 const pacienteService = require('../services/paciente.service');
+const tutorService = require('../services/tutor.service');
 const alertaService = require('../services/alerta.service');
 const { ok, created, fail } = require('../utils/response.util');
 
@@ -37,6 +38,7 @@ async function obtenerEsquema(req, res, next) {
 async function crear(req, res, next) {
   try {
     const paciente = await pacienteService.crear({ ...req.body, creadoPor: req.usuario.id });
+    if (req.body.tutorId) await tutorService.vincularPaciente(req.body.tutorId, paciente.id, true);
     await alertaService.generarAlertasPaciente(paciente.id);
     res.locals.auditoriaExtra = { entidadId: paciente.id, datosNuevos: req.body };
     return created(res, paciente, 'Paciente registrado correctamente');
