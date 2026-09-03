@@ -38,12 +38,13 @@ async function vacunasAplicadas({ desde, hasta }) {
   if (!desde || !hasta) throw new ReporteError('Debe indicar el rango de fechas (desde, hasta)');
   const [rows] = await pool.query(
     `SELECT p.codigo_paciente, p.nombres, p.apellidos, v.nombre AS vacuna, d.nombre_dosis,
-            h.fecha_aplicacion, h.lote, u.nombre_completo AS aplicado_por
+            h.fecha_aplicacion, lv.numero_lote AS lote, u.nombre_completo AS aplicado_por
      FROM historial_vacunacion h
      INNER JOIN pacientes p ON p.id = h.paciente_id
      INNER JOIN dosis d ON d.id = h.dosis_id
      INNER JOIN vacunas v ON v.id = d.vacuna_id
      LEFT JOIN usuarios u ON u.id = h.usuario_id
+     INNER JOIN lotes_vacuna lv ON lv.id = h.lote_vacuna_id
      WHERE h.fecha_aplicacion BETWEEN ? AND ?
      ORDER BY h.fecha_aplicacion DESC`,
     [desde, hasta]
@@ -164,11 +165,12 @@ async function pacientesPorRangoEdad({ edadMin = 0, edadMax = 18 } = {}) {
 async function vacunasPorFecha({ fecha }) {
   if (!fecha) throw new ReporteError('Debe indicar la fecha');
   const [rows] = await pool.query(
-    `SELECT p.codigo_paciente, p.nombres, p.apellidos, v.nombre AS vacuna, d.nombre_dosis, h.lote
+    `SELECT p.codigo_paciente, p.nombres, p.apellidos, v.nombre AS vacuna, d.nombre_dosis, lv.numero_lote AS lote
      FROM historial_vacunacion h
      INNER JOIN pacientes p ON p.id = h.paciente_id
      INNER JOIN dosis d ON d.id = h.dosis_id
      INNER JOIN vacunas v ON v.id = d.vacuna_id
+     INNER JOIN lotes_vacuna lv ON lv.id = h.lote_vacuna_id
      WHERE h.fecha_aplicacion = ?`,
     [fecha]
   );
