@@ -12,6 +12,8 @@ const reglasPaciente = [
   body('nombres').notEmpty().withMessage('Los nombres son obligatorios'),
   body('apellidos').notEmpty().withMessage('Los apellidos son obligatorios'),
   body('fechaNacimiento').isISO8601().withMessage('Fecha de nacimiento inválida'),
+  body('fechaNacimiento').custom((valor) => new Date(`${valor}T00:00:00`) <= new Date()).withMessage('La fecha de nacimiento no puede ser futura'),
+  body('email').isEmail().withMessage('El correo electrónico del paciente es obligatorio y debe ser válido'),
   body('sexo').isIn(['M', 'F']).withMessage('Sexo inválido')
 ];
 
