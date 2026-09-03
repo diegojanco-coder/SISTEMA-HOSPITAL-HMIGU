@@ -15,7 +15,7 @@ const reglasHistorial = [
 ];
 
 router.get('/paciente/:id', ctrl.listarPorPaciente);
-router.post('/', reglasHistorial, validar, auditar('CREAR', 'historial_vacunacion'), ctrl.registrar);
+// Las aplicaciones se registran exclusivamente mediante POST /citas para garantizar lote, stock y transacción.
 router.put('/:id', auditar('EDITAR', 'historial_vacunacion'), ctrl.actualizar);
 
 module.exports = router;
