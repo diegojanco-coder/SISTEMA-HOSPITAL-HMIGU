@@ -11,6 +11,7 @@ import Pagination from '../components/ui/Pagination.jsx';
 import { useDebounce } from '../hooks/useDebounce';
 import { usePagination } from '../hooks/usePagination';
 import { listarPacientes, crearPaciente, actualizarPaciente, eliminarPaciente, abrirCarnetPDF } from '../services/pacientes.service';
+import { MENSAJES, fechaMaxima, reglasEmail, reglasNombre } from '../lib/validaciones.js';
 
 export default function Pacientes() {
   const [pacientes, setPacientes] = useState([]);
@@ -40,7 +41,7 @@ export default function Pacientes() {
 
   function abrirNuevo() {
     setPacienteEditando(null);
-    reset({ nombres: '', apellidos: '', carnetIdentidad: '', fechaNacimiento: '', sexo: 'F', direccion: '', telefonoContacto: '' });
+    reset({ nombres: '', apellidos: '', carnetIdentidad: '', fechaNacimiento: '', sexo: 'F', direccion: '', telefonoContacto: '', email: '' });
     setModalAbierto(true);
   }
 
@@ -54,6 +55,7 @@ export default function Pacientes() {
       sexo: paciente.sexo,
       direccion: paciente.direccion || '',
       telefonoContacto: paciente.telefono_contacto || ''
+      ,email: paciente.email || ''
     });
     setModalAbierto(true);
   }
@@ -143,13 +145,13 @@ export default function Pacientes() {
         <form className="grid grid-cols-1 sm:grid-cols-2 gap-4" onSubmit={handleSubmit(onSubmit)}>
           <div>
             <label className="text-sm text-slate-600">Nombres</label>
-            <input className="w-full border border-slate-200 rounded-lg px-3 py-2 mt-1" {...register('nombres', { required: true })} />
-            {errors.nombres && <p className="text-xs text-hospital-rojo">Obligatorio</p>}
+            <input className="w-full border border-slate-200 rounded-lg px-3 py-2 mt-1" {...register('nombres', reglasNombre(MENSAJES.nombre))} />
+            {errors.nombres && <p className="text-xs text-hospital-rojo">{errors.nombres.message}</p>}
           </div>
           <div>
             <label className="text-sm text-slate-600">Apellidos</label>
-            <input className="w-full border border-slate-200 rounded-lg px-3 py-2 mt-1" {...register('apellidos', { required: true })} />
-            {errors.apellidos && <p className="text-xs text-hospital-rojo">Obligatorio</p>}
+            <input className="w-full border border-slate-200 rounded-lg px-3 py-2 mt-1" {...register('apellidos', reglasNombre(MENSAJES.apellido))} />
+            {errors.apellidos && <p className="text-xs text-hospital-rojo">{errors.apellidos.message}</p>}
           </div>
           <div>
             <label className="text-sm text-slate-600">Carnet de identidad</label>
@@ -157,8 +159,8 @@ export default function Pacientes() {
           </div>
           <div>
             <label className="text-sm text-slate-600">Fecha de nacimiento</label>
-            <input type="date" className="w-full border border-slate-200 rounded-lg px-3 py-2 mt-1" {...register('fechaNacimiento', { required: true })} />
-            {errors.fechaNacimiento && <p className="text-xs text-hospital-rojo">Obligatorio</p>}
+            <input type="date" max={fechaMaxima} className="w-full border border-slate-200 rounded-lg px-3 py-2 mt-1" {...register('fechaNacimiento', { required: MENSAJES.fecha, validate: (v) => v <= fechaMaxima || MENSAJES.fecha })} />
+            {errors.fechaNacimiento && <p className="text-xs text-hospital-rojo">{errors.fechaNacimiento.message}</p>}
           </div>
           <div>
             <label className="text-sm text-slate-600">Sexo</label>
@@ -170,6 +172,11 @@ export default function Pacientes() {
           <div>
             <label className="text-sm text-slate-600">Teléfono de contacto</label>
             <input className="w-full border border-slate-200 rounded-lg px-3 py-2 mt-1" {...register('telefonoContacto')} />
+          </div>
+          <div>
+            <label className="text-sm text-slate-600">Correo electrónico</label>
+            <input type="email" className="w-full border border-slate-200 rounded-lg px-3 py-2 mt-1" {...register('email', reglasEmail)} />
+            {errors.email && <p className="text-xs text-hospital-rojo">{errors.email.message}</p>}
           </div>
           <div className="sm:col-span-2">
             <label className="text-sm text-slate-600">Dirección</label>

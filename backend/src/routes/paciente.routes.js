@@ -7,13 +7,15 @@ const validar = require('../middlewares/validate.middleware');
 
 const router = Router();
 router.use(authMiddleware);
+const mensajeNombre = (campo) => `El campo ${campo} solo debe contener letras y tener entre 2 y 100 caracteres.`;
+const reglaTexto = (campo, etiqueta) => body(campo).trim().matches(/^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+(?:\\s+[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+)*$/u).isLength({ min: 2, max: 100 }).withMessage(mensajeNombre(etiqueta));
 
 const reglasPaciente = [
-  body('nombres').notEmpty().withMessage('Los nombres son obligatorios'),
-  body('apellidos').notEmpty().withMessage('Los apellidos son obligatorios'),
+  reglaTexto('nombres', 'Nombre'),
+  reglaTexto('apellidos', 'Apellido'),
   body('fechaNacimiento').isISO8601().withMessage('Fecha de nacimiento inválida'),
-  body('fechaNacimiento').custom((valor) => new Date(`${valor}T00:00:00`) <= new Date()).withMessage('La fecha de nacimiento no puede ser futura'),
-  body('email').isEmail().withMessage('El correo electrónico del paciente es obligatorio y debe ser válido'),
+  body('fechaNacimiento').custom((valor) => new Date(`${valor}T00:00:00`) <= new Date()).withMessage('La fecha de nacimiento no puede ser una fecha futura.'),
+  body('email').trim().isEmail().withMessage('Por favor, ingrese un correo electrónico válido.'),
   body('sexo').isIn(['M', 'F']).withMessage('Sexo inválido')
 ];
 

@@ -8,6 +8,7 @@ const rateLimit = require('express-rate-limit');
 const { frontendUrl, env } = require('./config/env');
 const apiRoutes = require('./routes');
 const { errorMiddleware, notFoundMiddleware } = require('./middlewares/error.middleware');
+const sanitizarEntrada = require('./middlewares/sanitize.middleware');
 
 const app = express();
 
@@ -33,6 +34,7 @@ app.use('/api', limiter);
 app.use(compression());
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
+app.use(sanitizarEntrada);
 
 if (env !== 'test') {
   app.use(morgan(env === 'production' ? 'combined' : 'dev'));

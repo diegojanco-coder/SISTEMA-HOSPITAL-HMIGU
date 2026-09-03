@@ -5,6 +5,7 @@ import Card from '../components/ui/Card.jsx';
 import Button from '../components/ui/Button.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { cambiarPassword } from '../services/usuarios.service';
+import { reglasPassword } from '../lib/validaciones.js';
 import { ejecutarBackup, listarBackups } from '../services/backup.service';
 
 export default function Perfil() {
@@ -60,8 +61,8 @@ export default function Perfil() {
       <Card title="Cambiar contraseña">
         <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
           <div><label className="text-sm text-slate-600">Nueva contraseña</label>
-            <input type="password" className="w-full border border-slate-200 rounded-lg px-3 py-2 mt-1" {...register('password', { required: true, minLength: 6 })} />
-            {errors.password && <p className="text-xs text-hospital-rojo">Mínimo 6 caracteres</p>}</div>
+            <input type="password" className="w-full border border-slate-200 rounded-lg px-3 py-2 mt-1" {...register('password', reglasPassword)} />
+            {errors.password && <p className="text-xs text-hospital-rojo">{errors.password.message}</p>}</div>
           <div><label className="text-sm text-slate-600">Confirmar contraseña</label>
             <input type="password" className="w-full border border-slate-200 rounded-lg px-3 py-2 mt-1" {...register('confirmar', { required: true })} /></div>
           <Button type="submit">Actualizar contraseña</Button>

@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import { useAuth } from '../context/AuthContext.jsx';
 import Button from '../components/ui/Button.jsx';
+import { reglasPassword } from '../lib/validaciones.js';
 
 export default function Login() {
   const { register, handleSubmit, formState: { errors } } = useForm();
@@ -43,7 +44,7 @@ export default function Login() {
             type="text"
             className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-hospital-celeste"
             placeholder="admin"
-            {...register('login', { required: 'Este campo es obligatorio' })}
+            {...register('login', { required: 'Este campo es obligatorio', setValueAs: (v) => v.trim() })}
           />
           {errors.login && <p className="text-xs text-hospital-rojo mt-1">{errors.login.message}</p>}
         </div>
@@ -54,7 +55,7 @@ export default function Login() {
             type="password"
             className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-hospital-celeste"
             placeholder="••••••••"
-            {...register('password', { required: 'Este campo es obligatorio' })}
+            {...register('password', reglasPassword)}
           />
           {errors.password && <p className="text-xs text-hospital-rojo mt-1">{errors.password.message}</p>}
         </div>

@@ -7,14 +7,16 @@ const validar = require('../middlewares/validate.middleware');
 
 const router = Router();
 router.use(authMiddleware);
+const mensajeNombre = (campo) => `El campo ${campo} solo debe contener letras y tener entre 2 y 100 caracteres.`;
+const reglaTexto = (campo, etiqueta) => body(campo).trim().matches(/^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+(?:\\s+[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+)*$/u).isLength({ min: 2, max: 100 }).withMessage(mensajeNombre(etiqueta));
 
 const reglasTutor = [
-  body('nombres').notEmpty(),
-  body('apellidos').notEmpty(),
+  reglaTexto('nombres', 'Nombre'),
+  reglaTexto('apellidos', 'Apellido'),
   body('carnetIdentidad').notEmpty().withMessage('El carnet de identidad es obligatorio'),
   body('parentesco').isIn(['padre', 'madre', 'tutor_legal', 'otro']),
-  body('telefono').notEmpty().withMessage('El teléfono del tutor es obligatorio'),
-  body('email').isEmail().withMessage('El correo electrónico del tutor es obligatorio y debe ser válido')
+  body('telefono').trim().matches(/^\\d{7,15}$/).withMessage('El número de teléfono debe ser válido y contener entre 7 y 15 dígitos.'),
+  body('email').trim().isEmail().withMessage('Por favor, ingrese un correo electrónico válido.')
 ];
 
 router.get('/', ctrl.listar);

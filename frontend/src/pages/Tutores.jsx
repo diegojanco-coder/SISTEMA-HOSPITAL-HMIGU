@@ -10,6 +10,7 @@ import Pagination from '../components/ui/Pagination.jsx';
 import { useDebounce } from '../hooks/useDebounce';
 import { usePagination } from '../hooks/usePagination';
 import { listarTutores, crearTutor, actualizarTutor, eliminarTutor } from '../services/tutores.service';
+import { MENSAJES, reglasEmail, reglasNombre, reglasTelefono } from '../lib/validaciones.js';
 
 export default function Tutores() {
   const [tutores, setTutores] = useState([]);
@@ -112,11 +113,11 @@ export default function Tutores() {
       >
         <form className="grid grid-cols-1 sm:grid-cols-2 gap-4" onSubmit={handleSubmit(onSubmit)}>
           <div><label className="text-sm text-slate-600">Nombres</label>
-            <input className="w-full border border-slate-200 rounded-lg px-3 py-2 mt-1" {...register('nombres', { required: true })} />
-            {errors.nombres && <p className="text-xs text-hospital-rojo">Obligatorio</p>}</div>
+            <input className="w-full border border-slate-200 rounded-lg px-3 py-2 mt-1" {...register('nombres', reglasNombre(MENSAJES.nombre))} />
+            {errors.nombres && <p className="text-xs text-hospital-rojo">{errors.nombres.message}</p>}</div>
           <div><label className="text-sm text-slate-600">Apellidos</label>
-            <input className="w-full border border-slate-200 rounded-lg px-3 py-2 mt-1" {...register('apellidos', { required: true })} />
-            {errors.apellidos && <p className="text-xs text-hospital-rojo">Obligatorio</p>}</div>
+            <input className="w-full border border-slate-200 rounded-lg px-3 py-2 mt-1" {...register('apellidos', reglasNombre(MENSAJES.apellido))} />
+            {errors.apellidos && <p className="text-xs text-hospital-rojo">{errors.apellidos.message}</p>}</div>
           <div><label className="text-sm text-slate-600">Carnet de identidad</label>
             <input className="w-full border border-slate-200 rounded-lg px-3 py-2 mt-1" {...register('carnetIdentidad', { required: true })} />
             {errors.carnetIdentidad && <p className="text-xs text-hospital-rojo">Obligatorio</p>}</div>
@@ -126,9 +127,11 @@ export default function Tutores() {
               <option value="tutor_legal">Tutor legal</option><option value="otro">Otro</option>
             </select></div>
           <div><label className="text-sm text-slate-600">Teléfono</label>
-            <input className="w-full border border-slate-200 rounded-lg px-3 py-2 mt-1" {...register('telefono')} /></div>
+            <input inputMode="numeric" className="w-full border border-slate-200 rounded-lg px-3 py-2 mt-1" {...register('telefono', reglasTelefono)} />
+            {errors.telefono && <p className="text-xs text-hospital-rojo">{errors.telefono.message}</p>}</div>
           <div><label className="text-sm text-slate-600">Email</label>
-            <input className="w-full border border-slate-200 rounded-lg px-3 py-2 mt-1" {...register('email')} /></div>
+            <input type="email" className="w-full border border-slate-200 rounded-lg px-3 py-2 mt-1" {...register('email', reglasEmail)} />
+            {errors.email && <p className="text-xs text-hospital-rojo">{errors.email.message}</p>}</div>
           <div className="sm:col-span-2"><label className="text-sm text-slate-600">Dirección</label>
             <input className="w-full border border-slate-200 rounded-lg px-3 py-2 mt-1" {...register('direccion')} /></div>
         </form>

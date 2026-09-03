@@ -7,6 +7,7 @@ import Table from '../components/ui/Table.jsx';
 import Modal from '../components/ui/Modal.jsx';
 import Badge from '../components/ui/Badge.jsx';
 import { listarUsuarios, crearUsuario, actualizarUsuario, eliminarUsuario } from '../services/usuarios.service';
+import { reglasPassword } from '../lib/validaciones.js';
 
 export default function Usuarios() {
   const [usuarios, setUsuarios] = useState([]);
@@ -109,8 +110,8 @@ export default function Usuarios() {
           )}
           {!editando && (
             <div><label className="text-sm text-slate-600">Contraseña temporal</label>
-              <input type="password" className="w-full border border-slate-200 rounded-lg px-3 py-2 mt-1" {...register('password', { required: !editando, minLength: 6 })} />
-              {errors.password && <p className="text-xs text-hospital-rojo">Mínimo 6 caracteres</p>}</div>
+              <input type="password" className="w-full border border-slate-200 rounded-lg px-3 py-2 mt-1" {...register('password', editando ? {} : reglasPassword)} />
+              {errors.password && <p className="text-xs text-hospital-rojo">{errors.password.message}</p>}</div>
           )}
         </form>
       </Modal>

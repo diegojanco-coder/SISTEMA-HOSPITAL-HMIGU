@@ -5,11 +5,13 @@ const authMiddleware = require('../middlewares/auth.middleware');
 const validar = require('../middlewares/validate.middleware');
 
 const router = Router();
+const passwordFuerte = body('password').matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/)
+  .withMessage('La contraseña debe tener al menos 8 caracteres, incluir una mayúscula, una minúscula y un número.');
 
 router.post(
   '/login',
-  [body('login').notEmpty().withMessage('El usuario/email es obligatorio'),
-   body('password').notEmpty().withMessage('La contraseña es obligatoria')],
+  [body('login').trim().notEmpty().withMessage('El usuario/email es obligatorio'),
+   passwordFuerte],
   validar,
   authController.login
 );
