@@ -1,0 +1,12 @@
+const { Router } = require('express');
+const { body } = require('express-validator');
+const auth = require('../middlewares/auth.middleware');
+const roles = require('../middlewares/role.middleware');
+const validar = require('../middlewares/validate.middleware');
+const auditar = require('../middlewares/audit.middleware');
+const ctrl = require('../controllers/lote.controller');
+const router = Router();
+router.use(auth);
+router.get('/vacuna/:vacunaId/disponibles', ctrl.listarDisponibles);
+router.post('/', roles('administrador'), [body('vacunaId').isInt(), body('numeroLote').notEmpty(), body('fechaVencimiento').isISO8601(), body('cantidadDisponible').isInt({ min: 1 })], validar, auditar('CREAR', 'lotes_vacuna'), ctrl.crear);
+module.exports = router;
