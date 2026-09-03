@@ -34,6 +34,11 @@ function calcularEdadExacta(fechaNacimiento, fechaReferencia = new Date()) {
 /**
  * Representación legible: "3 años, 2 meses, 10 días" (omite unidades en cero).
  */
+function calcularEdadMeses(fechaNacimiento, fechaReferencia = new Date()) {
+  const edad = calcularEdadExacta(fechaNacimiento, fechaReferencia);
+  return (edad.anios * 12) + edad.meses;
+}
+
 function formatearEdad({ anios, meses, dias }) {
   const partes = [];
   if (anios > 0) partes.push(`${anios} año${anios !== 1 ? 's' : ''}`);
@@ -42,4 +47,4 @@ function formatearEdad({ anios, meses, dias }) {
   return partes.join(', ');
 }
 
-module.exports = { calcularEdadExacta, formatearEdad };
+module.exports = { calcularEdadExacta, calcularEdadMeses, formatearEdad };
