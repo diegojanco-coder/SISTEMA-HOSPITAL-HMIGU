@@ -61,10 +61,9 @@ export default function Perfil() {
       <Card title="Cambiar contraseña">
         <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
           <div><label className="text-sm text-slate-600">Nueva contraseña</label>
-            <input type="password" className="w-full border border-slate-200 rounded-lg px-3 py-2 mt-1" {...register('password', reglasPassword)} />
-            {errors.password && <p className="text-xs text-hospital-rojo">{errors.password.message}</p>}</div>
+            <input type="password" className="w-full border border-slate-200 rounded-lg px-3 py-2 mt-1" {...register('password')} /></div>
           <div><label className="text-sm text-slate-600">Confirmar contraseña</label>
-            <input type="password" className="w-full border border-slate-200 rounded-lg px-3 py-2 mt-1" {...register('confirmar', { required: true })} /></div>
+            <input type="password" className="w-full border border-slate-200 rounded-lg px-3 py-2 mt-1" {...register('confirmar')} /></div>
           <Button type="submit">Actualizar contraseña</Button>
         </form>
       </Card>

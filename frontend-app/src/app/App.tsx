@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import toast from 'react-hot-toast';
 import { Eye, EyeOff, Plus, Lock, Mail, Sparkles, Shield, Activity, Syringe, Stethoscope } from 'lucide-react';
 import Dashboard from './components/Dashboard';
 import { useAuth } from '../lib/auth-context';
@@ -16,10 +17,23 @@ export default function App() {
     setIsLoading(true);
     setError('');
 
+    const usuarioVacio = !email.trim();
+    const passwordVacia = !password.trim();
+
+    if (usuarioVacio || passwordVacia) {
+      toast.error('Por favor, corrige los campos marcados en rojo');
+      setError('Usuario y contraseña son obligatorios');
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      await login(email, password);
+      await login(email.trim(), password);
+      toast.success('Inicio de sesión correcto');
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'Credenciales incorrectas. Verifica tu email y contraseña.');
+      const mensaje = err?.response?.data?.message || 'Usuario o contraseña incorrectos';
+      setError(mensaje);
+      toast.error(mensaje);
     } finally {
       setIsLoading(false);
     }
@@ -238,6 +252,7 @@ export default function App() {
                   type="text"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  maxLength={100}
                   placeholder="usuario"
                   required
                   className="w-full pl-12 pr-4 py-3.5 rounded-xl border-2 border-gray-200 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10 outline-none transition-all"
@@ -264,6 +279,7 @@ export default function App() {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  maxLength={20}
                   placeholder="••••••••••"
                   required
                   className="w-full pl-12 pr-14 py-3.5 rounded-xl border-2 border-gray-200 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10 outline-none transition-all"

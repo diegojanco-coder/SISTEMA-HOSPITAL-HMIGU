@@ -91,9 +91,9 @@ export default function Vacunas() {
         footer={<><Button variante="secundario" onClick={() => setModalVacuna(false)}>Cancelar</Button><Button onClick={formVacuna.handleSubmit(onSubmitVacuna)}>Guardar</Button></>}>
         <form className="space-y-4" onSubmit={formVacuna.handleSubmit(onSubmitVacuna)}>
           <div><label className="text-sm text-slate-600">Nombre</label>
-            <input className="w-full border border-slate-200 rounded-lg px-3 py-2 mt-1" {...formVacuna.register('nombre', { required: true })} /></div>
+            <input className="w-full border border-slate-200 rounded-lg px-3 py-2 mt-1" {...formVacuna.register('nombre')} /></div>
           <div><label className="text-sm text-slate-600">Nombre corto</label>
-            <input className="w-full border border-slate-200 rounded-lg px-3 py-2 mt-1" {...formVacuna.register('nombreCorto', { required: true })} /></div>
+            <input className="w-full border border-slate-200 rounded-lg px-3 py-2 mt-1" {...formVacuna.register('nombreCorto')} /></div>
           <div><label className="text-sm text-slate-600">Enfermedad que previene</label>
             <input className="w-full border border-slate-200 rounded-lg px-3 py-2 mt-1" {...formVacuna.register('enfermedadPrevine')} /></div>
           <div><label className="text-sm text-slate-600">Descripción</label>
@@ -105,11 +105,11 @@ export default function Vacunas() {
         footer={<><Button variante="secundario" onClick={() => setModalDosis(null)}>Cancelar</Button><Button onClick={formDosis.handleSubmit(onSubmitDosis)}>Guardar</Button></>}>
         <form className="grid grid-cols-2 gap-4" onSubmit={formDosis.handleSubmit(onSubmitDosis)}>
           <div><label className="text-sm text-slate-600">N° de dosis</label>
-            <input type="number" className="w-full border border-slate-200 rounded-lg px-3 py-2 mt-1" {...formDosis.register('numeroDosis', { required: true })} /></div>
+            <input type="number" className="w-full border border-slate-200 rounded-lg px-3 py-2 mt-1" {...formDosis.register('numeroDosis')} /></div>
           <div><label className="text-sm text-slate-600">Nombre de la dosis</label>
-            <input className="w-full border border-slate-200 rounded-lg px-3 py-2 mt-1" {...formDosis.register('nombreDosis', { required: true })} /></div>
+            <input className="w-full border border-slate-200 rounded-lg px-3 py-2 mt-1" {...formDosis.register('nombreDosis')} /></div>
           <div><label className="text-sm text-slate-600">Edad recomendada (días)</label>
-            <input type="number" className="w-full border border-slate-200 rounded-lg px-3 py-2 mt-1" {...formDosis.register('edadRecomendadaDias', { required: true })} /></div>
+            <input type="number" className="w-full border border-slate-200 rounded-lg px-3 py-2 mt-1" {...formDosis.register('edadRecomendadaDias')} /></div>
           <div><label className="text-sm text-slate-600">Tolerancia (días)</label>
             <input type="number" className="w-full border border-slate-200 rounded-lg px-3 py-2 mt-1" {...formDosis.register('toleranciaDias')} /></div>
           <div className="col-span-2"><label className="text-sm text-slate-600">Intervalo mínimo respecto a la dosis anterior (días)</label>

@@ -11,8 +11,10 @@ import {
 } from '../../../services/pacientes.service';
 import { crearTutor } from '../../../services/tutores.service';
 import { listarHistorialPorPaciente, registrarAplicacion } from '../../../services/historial.service';
+import { listarLotesDisponibles, type LoteDisponible } from '../../../services/lotes.service';
 import { useAuth } from '../../../lib/auth-context';
 import type { EsquemaPaciente, HistorialItem, Paciente } from '../../../lib/types';
+import { errorLongitud, errorNumerico, LIMITES_TEXTO, normalizarEspacios, validateForm } from '../../../lib/validaciones';
 import StatusBadge from '../shared/StatusBadge';
 
 const inputClass =
@@ -27,6 +29,7 @@ export default function Pacientes() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [busqueda, setBusqueda] = useState('');
+  const [errorBusqueda, setErrorBusqueda] = useState('');
   const [cargando, setCargando] = useState(true);
 
   const [showAddPatient, setShowAddPatient] = useState(false);
@@ -90,11 +93,30 @@ export default function Pacientes() {
           <input
             type="text"
             value={busqueda}
-            onChange={(e) => { setBusqueda(e.target.value); setPage(1); }}
+            maxLength={100}
+            onBeforeInput={(e) => {
+              if (e.currentTarget.value.length >= 100 && e.data) {
+                e.preventDefault();
+                setErrorBusqueda(errorLongitud(`${e.currentTarget.value}x`, 100, 'búsqueda'));
+              }
+            }}
+            onPaste={(e) => {
+              if (e.currentTarget.value.length + e.clipboardData.getData('text').length > 100) {
+                e.preventDefault();
+                setErrorBusqueda('El campo búsqueda no puede exceder los 100 caracteres');
+              }
+            }}
+            onChange={(e) => {
+              const valor = e.target.value;
+              setBusqueda(normalizarEspacios(valor));
+              setErrorBusqueda(errorLongitud(valor, 100, 'búsqueda'));
+              setPage(1);
+            }}
             placeholder="Buscar por nombre, CI o código..."
-            className={`${inputClass} pl-10`}
+            className={`${inputClass} pl-10 ${errorBusqueda ? 'border-red-500 ring-2 ring-red-500/20' : ''}`}
             style={fontBody}
           />
+          {errorBusqueda && <p className="text-xs text-red-600 mt-2">{errorBusqueda}</p>}
         </div>
       </div>
 
@@ -215,6 +237,9 @@ function PatientFormModal({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const validacion = validateForm(form, { nombres: LIMITES_TEXTO.nombre, apellidos: LIMITES_TEXTO.apellido, carnetIdentidad: LIMITES_TEXTO.ci, telefonoContacto: LIMITES_TEXTO.telefono }, { nombres: 'nombre', apellidos: 'apellido', carnetIdentidad: 'CI', telefonoContacto: 'teléfono' });
+    const errorFormato = errorNumerico(form.telefonoContacto, 'teléfono de contacto') || errorNumerico(form.carnetIdentidad, 'CI');
+    if (validacion || errorFormato) { setErrorMsg(validacion || errorFormato); return; }
     setGuardando(true);
     setErrorMsg('');
     try {
@@ -259,15 +284,19 @@ function PatientFormModal({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className={labelClass} style={fontBody}>Nombres *</label>
-                <input required value={form.nombres} onChange={(e) => setForm({ ...form, nombres: e.target.value })} className={inputClass} style={fontBody} />
+                <input required maxLength={LIMITES_TEXTO.nombre} value={form.nombres} onChange={(e) => setForm({ ...form, nombres: normalizarEspacios(e.target.value) })} className={`${inputClass} ${errorLongitud(form.nombres, LIMITES_TEXTO.nombre, 'nombre') ? 'border-red-500 ring-2 ring-red-500/20' : ''}`} style={fontBody} />
+                {errorLongitud(form.nombres, LIMITES_TEXTO.nombre, 'nombre') && <p className="text-xs text-red-600 mt-1">{errorLongitud(form.nombres, LIMITES_TEXTO.nombre, 'nombre')}</p>}
               </div>
               <div>
                 <label className={labelClass} style={fontBody}>Apellidos *</label>
-                <input required value={form.apellidos} onChange={(e) => setForm({ ...form, apellidos: e.target.value })} className={inputClass} style={fontBody} />
+                <input required maxLength={LIMITES_TEXTO.apellido} value={form.apellidos} onChange={(e) => setForm({ ...form, apellidos: normalizarEspacios(e.target.value) })} className={`${inputClass} ${errorLongitud(form.apellidos, LIMITES_TEXTO.apellido, 'apellido') ? 'border-red-500 ring-2 ring-red-500/20' : ''}`} style={fontBody} />
+                {errorLongitud(form.apellidos, LIMITES_TEXTO.apellido, 'apellido') && <p className="text-xs text-red-600 mt-1">{errorLongitud(form.apellidos, LIMITES_TEXTO.apellido, 'apellido')}</p>}
               </div>
               <div>
                 <label className={labelClass} style={fontBody}>Carnet de Identidad</label>
-                <input value={form.carnetIdentidad} onChange={(e) => setForm({ ...form, carnetIdentidad: e.target.value })} className={inputClass} style={fontBody} />
+                <input maxLength={LIMITES_TEXTO.ci} value={form.carnetIdentidad} onChange={(e) => setForm({ ...form, carnetIdentidad: normalizarEspacios(e.target.value) })} className={`${inputClass} ${errorLongitud(form.carnetIdentidad, LIMITES_TEXTO.ci, 'CI') || errorNumerico(form.carnetIdentidad, 'CI') ? 'border-red-500 ring-2 ring-red-500/20' : ''}`} style={fontBody} />
+                {errorLongitud(form.carnetIdentidad, LIMITES_TEXTO.ci, 'CI') && <p className="text-xs text-red-600 mt-1">{errorLongitud(form.carnetIdentidad, LIMITES_TEXTO.ci, 'CI')}</p>}
+                {errorNumerico(form.carnetIdentidad, 'CI') && <p className="text-xs text-red-600 mt-1">{errorNumerico(form.carnetIdentidad, 'CI')}</p>}
               </div>
               <div>
                 <label className={labelClass} style={fontBody}>Fecha de Nacimiento *</label>
@@ -282,11 +311,13 @@ function PatientFormModal({
               </div>
               <div>
                 <label className={labelClass} style={fontBody}>Teléfono de Contacto</label>
-                <input value={form.telefonoContacto} onChange={(e) => setForm({ ...form, telefonoContacto: e.target.value })} className={inputClass} style={fontBody} />
+                <input maxLength={LIMITES_TEXTO.telefono} inputMode="numeric" value={form.telefonoContacto} onChange={(e) => setForm({ ...form, telefonoContacto: normalizarEspacios(e.target.value) })} className={`${inputClass} ${errorLongitud(form.telefonoContacto, LIMITES_TEXTO.telefono, 'teléfono') || errorNumerico(form.telefonoContacto, 'teléfono de contacto') ? 'border-red-500 ring-2 ring-red-500/20' : ''}`} style={fontBody} />
+                {errorLongitud(form.telefonoContacto, LIMITES_TEXTO.telefono, 'teléfono') && <p className="text-xs text-red-600 mt-1">{errorLongitud(form.telefonoContacto, LIMITES_TEXTO.telefono, 'teléfono')}</p>}
+                {errorNumerico(form.telefonoContacto, 'teléfono de contacto') && <p className="text-xs text-red-600 mt-1">{errorNumerico(form.telefonoContacto, 'teléfono de contacto')}</p>}
               </div>
               <div className="md:col-span-2">
                 <label className={labelClass} style={fontBody}>Dirección</label>
-                <input value={form.direccion} onChange={(e) => setForm({ ...form, direccion: e.target.value })} className={inputClass} style={fontBody} />
+                <input value={form.direccion} onChange={(e) => setForm({ ...form, direccion: normalizarEspacios(e.target.value) })} className={inputClass} style={fontBody} />
               </div>
             </div>
           </div>
@@ -299,15 +330,15 @@ function PatientFormModal({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className={labelClass} style={fontBody}>Nombres del Tutor</label>
-                  <input value={tutor.nombres} onChange={(e) => setTutor({ ...tutor, nombres: e.target.value })} className={inputClass} style={fontBody} />
+                  <input maxLength={LIMITES_TEXTO.tutor} value={tutor.nombres} onChange={(e) => setTutor({ ...tutor, nombres: normalizarEspacios(e.target.value) })} className={inputClass} style={fontBody} />
                 </div>
                 <div>
                   <label className={labelClass} style={fontBody}>Apellidos del Tutor</label>
-                  <input value={tutor.apellidos} onChange={(e) => setTutor({ ...tutor, apellidos: e.target.value })} className={inputClass} style={fontBody} />
+                  <input maxLength={LIMITES_TEXTO.tutor} value={tutor.apellidos} onChange={(e) => setTutor({ ...tutor, apellidos: normalizarEspacios(e.target.value) })} className={inputClass} style={fontBody} />
                 </div>
                 <div>
                   <label className={labelClass} style={fontBody}>CI del Tutor</label>
-                  <input value={tutor.carnetIdentidad} onChange={(e) => setTutor({ ...tutor, carnetIdentidad: e.target.value })} className={inputClass} style={fontBody} />
+                  <input maxLength={LIMITES_TEXTO.ci} value={tutor.carnetIdentidad} onChange={(e) => setTutor({ ...tutor, carnetIdentidad: e.target.value })} className={inputClass} style={fontBody} />
                 </div>
                 <div>
                   <label className={labelClass} style={fontBody}>Parentesco</label>
@@ -320,11 +351,11 @@ function PatientFormModal({
                 </div>
                 <div>
                   <label className={labelClass} style={fontBody}>Teléfono</label>
-                  <input value={tutor.telefono} onChange={(e) => setTutor({ ...tutor, telefono: e.target.value })} className={inputClass} style={fontBody} />
+                  <input maxLength={LIMITES_TEXTO.telefono} value={tutor.telefono} onChange={(e) => setTutor({ ...tutor, telefono: e.target.value })} className={inputClass} style={fontBody} />
                 </div>
                 <div>
                   <label className={labelClass} style={fontBody}>Correo Electrónico</label>
-                  <input value={tutor.email} onChange={(e) => setTutor({ ...tutor, email: e.target.value })} className={inputClass} style={fontBody} />
+                  <input maxLength={LIMITES_TEXTO.email} value={tutor.email} onChange={(e) => setTutor({ ...tutor, email: e.target.value })} className={inputClass} style={fontBody} />
                 </div>
               </div>
             </div>
@@ -508,7 +539,8 @@ export function AddVaccineModal({
   const [esquema, setEsquema] = useState<EsquemaPaciente | null>(null);
   const [dosisId, setDosisId] = useState('');
   const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10));
-  const [lote, setLote] = useState('');
+  const [loteId, setLoteId] = useState('');
+  const [lotes, setLotes] = useState<LoteDisponible[]>([]);
   const [observaciones, setObservaciones] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -519,9 +551,19 @@ export function AddVaccineModal({
 
   const opciones = esquema?.detalle.filter((d) => ['proxima', 'pendiente', 'atrasada'].includes(d.estado)) || [];
 
+  useEffect(() => {
+    const dosis = opciones.find((item) => String(item.dosisId) === dosisId);
+    setLoteId('');
+    if (!dosis) { setLotes([]); return; }
+    listarLotesDisponibles(dosis.vacunaId).then(setLotes).catch(() => setLotes([]));
+  }, [dosisId, esquema]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!dosisId) { setErrorMsg('Seleccione una dosis'); return; }
+    if (!loteId) { setErrorMsg('Seleccione un lote'); return; }
+    const validacion = validateForm({ observaciones }, { observaciones: 255 }, { observaciones: 'observaciones' });
+    if (validacion) { setErrorMsg(validacion); return; }
     setGuardando(true);
     setErrorMsg('');
     try {
@@ -529,7 +571,7 @@ export function AddVaccineModal({
         pacienteId: paciente.id,
         dosisId: Number(dosisId),
         fechaAplicacion: fecha,
-        lote,
+        loteVacunaId: Number(loteId),
         observaciones,
       });
       onSaved();
@@ -575,11 +617,16 @@ export function AddVaccineModal({
             </div>
             <div>
               <label className={labelClass} style={fontBody}>Número de Lote</label>
-              <input value={lote} onChange={(e) => setLote(e.target.value)} placeholder="Ej: PNT-2026-042" className={inputClass} style={fontBody} />
+              <select required value={loteId} onChange={(e) => setLoteId(e.target.value)} className={inputClass} style={fontBody}>
+                <option value="">Seleccionar lote (código máximo 50 caracteres)...</option>
+                {lotes.map((item) => <option key={item.id} value={item.id}>{item.numero_lote} (máximo 50 caracteres)</option>)}
+              </select>
+              {dosisId && lotes.length === 0 && <p className="text-xs text-gray-400 mt-1">No hay lotes disponibles para esta vacuna.</p>}
             </div>
             <div className="md:col-span-2">
               <label className={labelClass} style={fontBody}>Observaciones / Reacciones</label>
-              <textarea value={observaciones} onChange={(e) => setObservaciones(e.target.value)} rows={3} className={`${inputClass} resize-none`} style={fontBody} />
+              <textarea maxLength={255} value={observaciones} onChange={(e) => setObservaciones(e.target.value)} rows={3} className={`${inputClass} resize-none ${errorLongitud(observaciones, 255, 'observaciones') ? 'border-red-500 ring-2 ring-red-500/20' : ''}`} style={fontBody} />
+              {errorLongitud(observaciones, 255, 'observaciones') && <p className="text-xs text-red-600">{errorLongitud(observaciones, 255, 'observaciones')}</p>}
             </div>
             <div className="md:col-span-2">
               <label className={labelClass} style={fontBody}>Profesional que Aplicó</label>

@@ -8,12 +8,12 @@ const validar = require('../middlewares/validate.middleware');
 
 const router = Router();
 router.use(authMiddleware, permitirRoles('administrador'));
-const passwordFuerte = body('password').matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d).{8,}$/).withMessage('La contraseña debe tener al menos 8 caracteres, incluir una mayúscula, una minúscula y un número.');
+const passwordFuerte = body('password').isLength({ min: 6, max: 20 }).withMessage('La contraseña debe tener entre 6 y 20 caracteres.').matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d).{8,}$/).withMessage('La contraseña debe tener al menos 8 caracteres, incluir una mayúscula, una minúscula y un número.');
 
 const reglasUsuario = [
-  body('nombreCompleto').trim().notEmpty().withMessage('El nombre completo es obligatorio'),
-  body('email').trim().isEmail().withMessage('Por favor, ingrese un correo electrónico válido.'),
-  body('username').trim().isLength({ min: 3, max: 50 }).withMessage('El usuario debe tener entre 3 y 50 caracteres'),
+  body('nombreCompleto').trim().notEmpty().withMessage('El nombre completo es obligatorio').isLength({ max: 100 }).withMessage('El nombre completo no puede exceder los 100 caracteres.'),
+  body('email').trim().isLength({ max: 100 }).withMessage('El email no puede exceder los 100 caracteres.').isEmail().withMessage('Por favor, ingrese un correo electrónico válido.'),
+  body('username').trim().isLength({ min: 3, max: 30 }).withMessage('El nombre de usuario debe tener entre 3 y 30 caracteres'),
   body('rol').isIn(['administrador', 'enfermero']).withMessage('Rol inválido')
 ];
 

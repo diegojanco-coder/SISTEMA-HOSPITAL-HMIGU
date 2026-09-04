@@ -9,6 +9,8 @@ const ctrl = require('../controllers/cita.controller');
 const router = Router();
 router.post('/', auth, roles('enfermero', 'administrador'), [
   body('pacienteId').isInt(), body('dosisAplicadas').isArray({ min: 1 }),
-  body('dosisAplicadas.*.dosisId').isInt(), body('dosisAplicadas.*.loteVacunaId').isInt()
+  body('observaciones').optional({ checkFalsy: true }).isLength({ max: 255 }).withMessage('Las observaciones no pueden exceder los 255 caracteres.'),
+  body('dosisAplicadas.*.dosisId').isInt(), body('dosisAplicadas.*.loteVacunaId').isInt(),
+  body('dosisAplicadas.*.observaciones').optional({ checkFalsy: true }).isLength({ max: 255 }).withMessage('Las observaciones no pueden exceder los 255 caracteres.')
 ], validar, auditar('CREAR', 'citas'), ctrl.registrar);
 module.exports = router;

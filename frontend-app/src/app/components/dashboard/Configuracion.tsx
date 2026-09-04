@@ -5,6 +5,7 @@ import { listarVacunas, crearVacuna, agregarDosis, type DatosVacuna, type DatosD
 import { listarAuditoria } from '../../../services/auditoria.service';
 import { ejecutarBackup, listarBackups, type BackupInfo } from '../../../services/backup.service';
 import type { RegistroAuditoria, Usuario, Vacuna } from '../../../lib/types';
+import { errorLongitud, LIMITES_TEXTO, normalizarEspacios, validateForm } from '../../../lib/validaciones';
 
 const inputClass = 'w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 outline-none';
 const labelClass = 'block text-sm font-semibold text-gray-700 mb-2';
@@ -177,6 +178,8 @@ function UsuarioModal({ usuario, onClose, onSaved }: { usuario: Usuario | null; 
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const validacion = validateForm(form, { nombreCompleto: LIMITES_TEXTO.tutor, email: LIMITES_TEXTO.email, username: LIMITES_TEXTO.nombreUsuario, password: LIMITES_TEXTO.password }, { nombreCompleto: 'nombre', username: 'nombre_usuario', password: 'password' });
+    if (validacion) { setErrorMsg(validacion); return; }
     setGuardando(true);
     setErrorMsg('');
     try {
@@ -198,11 +201,14 @@ function UsuarioModal({ usuario, onClose, onSaved }: { usuario: Usuario | null; 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {errorMsg && <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">{errorMsg}</div>}
           <div><label className={labelClass} style={fontBody}>Nombre completo *</label>
-            <input required value={form.nombreCompleto} onChange={(e) => setForm({ ...form, nombreCompleto: e.target.value })} className={inputClass} style={fontBody} /></div>
+            <input required maxLength={LIMITES_TEXTO.tutor} value={form.nombreCompleto} onChange={(e) => setForm({ ...form, nombreCompleto: normalizarEspacios(e.target.value) })} className={`${inputClass} ${errorLongitud(form.nombreCompleto, LIMITES_TEXTO.tutor, 'nombre') ? 'border-red-500 ring-2 ring-red-500/20' : ''}`} style={fontBody} />
+            {errorLongitud(form.nombreCompleto, LIMITES_TEXTO.tutor, 'nombre') && <p className="text-xs text-red-600">{errorLongitud(form.nombreCompleto, LIMITES_TEXTO.tutor, 'nombre')}</p>}</div>
           <div><label className={labelClass} style={fontBody}>Email *</label>
-            <input required type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className={inputClass} style={fontBody} /></div>
+            <input required maxLength={LIMITES_TEXTO.email} type="email" value={form.email} onChange={(e) => setForm({ ...form, email: normalizarEspacios(e.target.value) })} className={`${inputClass} ${errorLongitud(form.email, LIMITES_TEXTO.email, 'email') ? 'border-red-500 ring-2 ring-red-500/20' : ''}`} style={fontBody} />
+            {errorLongitud(form.email, LIMITES_TEXTO.email, 'email') && <p className="text-xs text-red-600">{errorLongitud(form.email, LIMITES_TEXTO.email, 'email')}</p>}</div>
           <div><label className={labelClass} style={fontBody}>Usuario *</label>
-            <input required value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} className={inputClass} style={fontBody} /></div>
+            <input required maxLength={LIMITES_TEXTO.nombreUsuario} value={form.username} onChange={(e) => setForm({ ...form, username: normalizarEspacios(e.target.value) })} className={`${inputClass} ${errorLongitud(form.username, LIMITES_TEXTO.nombreUsuario, 'nombre_usuario') ? 'border-red-500 ring-2 ring-red-500/20' : ''}`} style={fontBody} />
+            {errorLongitud(form.username, LIMITES_TEXTO.nombreUsuario, 'nombre_usuario') && <p className="text-xs text-red-600">{errorLongitud(form.username, LIMITES_TEXTO.nombreUsuario, 'nombre_usuario')}</p>}</div>
           <div><label className={labelClass} style={fontBody}>Rol</label>
             <select value={form.rol} onChange={(e) => setForm({ ...form, rol: e.target.value as any })} className={inputClass} style={fontBody}>
               <option value="enfermero">Enfermería</option><option value="administrador">Administrador</option>
@@ -215,7 +221,8 @@ function UsuarioModal({ usuario, onClose, onSaved }: { usuario: Usuario | null; 
           )}
           {!usuario && (
             <div><label className={labelClass} style={fontBody}>Contraseña temporal *</label>
-              <input required type="password" minLength={6} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className={inputClass} style={fontBody} /></div>
+              <input required type="password" minLength={6} maxLength={LIMITES_TEXTO.password} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className={`${inputClass} ${errorLongitud(form.password, LIMITES_TEXTO.password, 'password') ? 'border-red-500 ring-2 ring-red-500/20' : ''}`} style={fontBody} />
+              {errorLongitud(form.password, LIMITES_TEXTO.password, 'password') && <p className="text-xs text-red-600">{errorLongitud(form.password, LIMITES_TEXTO.password, 'password')}</p>}</div>
           )}
           <div className="flex items-center justify-end gap-3 border-t border-gray-200 pt-4">
             <button type="button" onClick={onClose} className="px-5 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50">Cancelar</button>
@@ -230,11 +237,15 @@ function UsuarioModal({ usuario, onClose, onSaved }: { usuario: Usuario | null; 
 function VacunaModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
   const [form, setForm] = useState<DatosVacuna>({ nombre: '', nombreCorto: '', descripcion: '', enfermedadPrevine: '', viaAdministracion: 'intramuscular' });
   const [guardando, setGuardando] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const validacion = validateForm(form, { nombre: LIMITES_TEXTO.nombreVacuna, nombreCorto: LIMITES_TEXTO.nombreVacuna, descripcion: LIMITES_TEXTO.descripcionVacuna, enfermedadPrevine: LIMITES_TEXTO.fabricante }, { nombre: 'nombre', nombreCorto: 'nombre corto', enfermedadPrevine: 'fabricante' });
+    if (validacion) { setErrorMsg(validacion); return; }
     setGuardando(true);
-    try { await crearVacuna(form); onSaved(); } finally { setGuardando(false); }
+    setErrorMsg('');
+    try { await crearVacuna(form); onSaved(); } catch (err: any) { setErrorMsg(err?.response?.data?.message || 'No se pudo guardar la vacuna'); } finally { setGuardando(false); }
   }
 
   return (
@@ -245,12 +256,16 @@ function VacunaModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
           <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100"><X className="w-5 h-5 text-gray-600" /></button>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {errorMsg && <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">{errorMsg}</div>}
           <div><label className={labelClass} style={fontBody}>Nombre *</label>
-            <input required value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} className={inputClass} style={fontBody} /></div>
+            <input required maxLength={LIMITES_TEXTO.nombreVacuna} value={form.nombre} onChange={(e) => setForm({ ...form, nombre: normalizarEspacios(e.target.value) })} className={`${inputClass} ${errorLongitud(form.nombre, LIMITES_TEXTO.nombreVacuna, 'nombre') ? 'border-red-500 ring-2 ring-red-500/20' : ''}`} style={fontBody} />
+            {errorLongitud(form.nombre, LIMITES_TEXTO.nombreVacuna, 'nombre') && <p className="text-xs text-red-600">{errorLongitud(form.nombre, LIMITES_TEXTO.nombreVacuna, 'nombre')}</p>}</div>
           <div><label className={labelClass} style={fontBody}>Nombre corto *</label>
-            <input required value={form.nombreCorto} onChange={(e) => setForm({ ...form, nombreCorto: e.target.value })} className={inputClass} style={fontBody} /></div>
+            <input required maxLength={LIMITES_TEXTO.nombreVacuna} value={form.nombreCorto} onChange={(e) => setForm({ ...form, nombreCorto: normalizarEspacios(e.target.value) })} className={`${inputClass} ${errorLongitud(form.nombreCorto, LIMITES_TEXTO.nombreVacuna, 'nombre corto') ? 'border-red-500 ring-2 ring-red-500/20' : ''}`} style={fontBody} />
+            {errorLongitud(form.nombreCorto, LIMITES_TEXTO.nombreVacuna, 'nombre corto') && <p className="text-xs text-red-600">{errorLongitud(form.nombreCorto, LIMITES_TEXTO.nombreVacuna, 'nombre corto')}</p>}</div>
           <div><label className={labelClass} style={fontBody}>Enfermedad que previene</label>
-            <input value={form.enfermedadPrevine} onChange={(e) => setForm({ ...form, enfermedadPrevine: e.target.value })} className={inputClass} style={fontBody} /></div>
+            <input maxLength={LIMITES_TEXTO.fabricante} value={form.enfermedadPrevine} onChange={(e) => setForm({ ...form, enfermedadPrevine: normalizarEspacios(e.target.value) })} className={`${inputClass} ${errorLongitud(form.enfermedadPrevine, LIMITES_TEXTO.fabricante, 'enfermedad') ? 'border-red-500 ring-2 ring-red-500/20' : ''}`} style={fontBody} />
+            {errorLongitud(form.enfermedadPrevine, LIMITES_TEXTO.fabricante, 'enfermedad') && <p className="text-xs text-red-600">{errorLongitud(form.enfermedadPrevine, LIMITES_TEXTO.fabricante, 'enfermedad')}</p>}</div>
           <div className="flex items-center justify-end gap-3 border-t border-gray-200 pt-4">
             <button type="button" onClick={onClose} className="px-5 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50">Cancelar</button>
             <button type="submit" disabled={guardando} className="px-5 py-2.5 rounded-lg bg-gradient-to-r from-green-500 to-teal-600 text-white font-semibold disabled:opacity-60">{guardando ? 'Guardando...' : 'Guardar'}</button>
@@ -264,9 +279,20 @@ function VacunaModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
 function DosisModal({ vacuna, onClose, onSaved }: { vacuna: Vacuna; onClose: () => void; onSaved: () => void }) {
   const [form, setForm] = useState<DatosDosis>({ numeroDosis: vacuna.dosis.length + 1, nombreDosis: '', edadRecomendadaDias: 0, toleranciaDias: 30, intervaloMinimoDias: 0 });
   const [guardando, setGuardando] = useState(false);
+  const [errores, setErrores] = useState<Record<string, string>>({});
+
+  function cambiarNumero(campo: keyof DatosDosis, valor: string) {
+    setForm({ ...form, [campo]: valor === '' ? Number.NaN : Number(valor) });
+    setErrores({ ...errores, [campo]: '' });
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const nuevosErrores: Record<string, string> = {};
+    if (!Number.isFinite(form.numeroDosis) || form.numeroDosis < 1) nuevosErrores.numeroDosis = 'El número de dosis es obligatorio y debe ser un número mayor que 0';
+    if (!Number.isFinite(form.edadRecomendadaDias) || form.edadRecomendadaDias < 0) nuevosErrores.edadRecomendadaDias = 'La edad recomendada es obligatoria y debe ser un número';
+    if (!Number.isFinite(form.toleranciaDias) || form.toleranciaDias < 0) nuevosErrores.toleranciaDias = 'La tolerancia debe ser un número mayor o igual a 0';
+    if (Object.keys(nuevosErrores).length > 0) { setErrores(nuevosErrores); return; }
     setGuardando(true);
     try { await agregarDosis(vacuna.id, form); onSaved(); } finally { setGuardando(false); }
   }
@@ -280,13 +306,16 @@ function DosisModal({ vacuna, onClose, onSaved }: { vacuna: Vacuna; onClose: () 
         </div>
         <form onSubmit={handleSubmit} className="p-6 grid grid-cols-2 gap-4">
           <div><label className={labelClass} style={fontBody}>N° de dosis</label>
-            <input type="number" required value={form.numeroDosis} onChange={(e) => setForm({ ...form, numeroDosis: Number(e.target.value) })} className={inputClass} style={fontBody} /></div>
+            <input type="number" required min="1" value={Number.isNaN(form.numeroDosis) ? '' : form.numeroDosis} onChange={(e) => cambiarNumero('numeroDosis', e.target.value)} className={`${inputClass} ${errores.numeroDosis ? 'border-red-500 ring-2 ring-red-500/20' : ''}`} style={fontBody} />
+            {errores.numeroDosis && <p className="text-xs text-red-600 mt-1">{errores.numeroDosis}</p>}</div>
           <div><label className={labelClass} style={fontBody}>Nombre de la dosis</label>
             <input required value={form.nombreDosis} onChange={(e) => setForm({ ...form, nombreDosis: e.target.value })} className={inputClass} style={fontBody} /></div>
           <div><label className={labelClass} style={fontBody}>Edad recomendada (días)</label>
-            <input type="number" required value={form.edadRecomendadaDias} onChange={(e) => setForm({ ...form, edadRecomendadaDias: Number(e.target.value) })} className={inputClass} style={fontBody} /></div>
+            <input type="number" required min="0" value={Number.isNaN(form.edadRecomendadaDias) ? '' : form.edadRecomendadaDias} onChange={(e) => cambiarNumero('edadRecomendadaDias', e.target.value)} className={`${inputClass} ${errores.edadRecomendadaDias ? 'border-red-500 ring-2 ring-red-500/20' : ''}`} style={fontBody} />
+            {errores.edadRecomendadaDias && <p className="text-xs text-red-600 mt-1">{errores.edadRecomendadaDias}</p>}</div>
           <div><label className={labelClass} style={fontBody}>Tolerancia (días)</label>
-            <input type="number" value={form.toleranciaDias} onChange={(e) => setForm({ ...form, toleranciaDias: Number(e.target.value) })} className={inputClass} style={fontBody} /></div>
+            <input type="number" min="0" value={Number.isNaN(form.toleranciaDias) ? '' : form.toleranciaDias} onChange={(e) => cambiarNumero('toleranciaDias', e.target.value)} className={`${inputClass} ${errores.toleranciaDias ? 'border-red-500 ring-2 ring-red-500/20' : ''}`} style={fontBody} />
+            {errores.toleranciaDias && <p className="text-xs text-red-600 mt-1">{errores.toleranciaDias}</p>}</div>
           <div className="col-span-2 flex items-center justify-end gap-3 border-t border-gray-200 pt-4">
             <button type="button" onClick={onClose} className="px-5 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50">Cancelar</button>
             <button type="submit" disabled={guardando} className="px-5 py-2.5 rounded-lg bg-gradient-to-r from-green-500 to-teal-600 text-white font-semibold disabled:opacity-60">{guardando ? 'Guardando...' : 'Guardar'}</button>

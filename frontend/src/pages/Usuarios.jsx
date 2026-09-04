@@ -92,12 +92,11 @@ export default function Usuarios() {
         footer={<><Button variante="secundario" onClick={() => setModalAbierto(false)}>Cancelar</Button><Button onClick={handleSubmit(onSubmit)}>Guardar</Button></>}>
         <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
           <div><label className="text-sm text-slate-600">Nombre completo</label>
-            <input className="w-full border border-slate-200 rounded-lg px-3 py-2 mt-1" {...register('nombreCompleto', { required: true })} />
-            {errors.nombreCompleto && <p className="text-xs text-hospital-rojo">Obligatorio</p>}</div>
+            <input className="w-full border border-slate-200 rounded-lg px-3 py-2 mt-1" {...register('nombreCompleto')} /></div>
           <div><label className="text-sm text-slate-600">Email</label>
-            <input type="email" className="w-full border border-slate-200 rounded-lg px-3 py-2 mt-1" {...register('email', { required: true })} /></div>
+            <input type="email" className="w-full border border-slate-200 rounded-lg px-3 py-2 mt-1" {...register('email')} /></div>
           <div><label className="text-sm text-slate-600">Usuario</label>
-            <input className="w-full border border-slate-200 rounded-lg px-3 py-2 mt-1" {...register('username', { required: true })} /></div>
+            <input className="w-full border border-slate-200 rounded-lg px-3 py-2 mt-1" {...register('username')} /></div>
           <div><label className="text-sm text-slate-600">Rol</label>
             <select className="w-full border border-slate-200 rounded-lg px-3 py-2 mt-1" {...register('rol')}>
               <option value="enfermero">Enfermero</option><option value="administrador">Administrador</option>
@@ -110,8 +109,7 @@ export default function Usuarios() {
           )}
           {!editando && (
             <div><label className="text-sm text-slate-600">Contraseña temporal</label>
-              <input type="password" className="w-full border border-slate-200 rounded-lg px-3 py-2 mt-1" {...register('password', editando ? {} : reglasPassword)} />
-              {errors.password && <p className="text-xs text-hospital-rojo">{errors.password.message}</p>}</div>
+              <input type="password" className="w-full border border-slate-200 rounded-lg px-3 py-2 mt-1" {...register('password')} /></div>
           )}
         </form>
       </Modal>

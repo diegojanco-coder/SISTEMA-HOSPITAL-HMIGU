@@ -11,8 +11,10 @@ const router = Router();
 router.use(authMiddleware);
 
 const reglasVacuna = [
-  body('nombre').notEmpty().withMessage('El nombre es obligatorio'),
-  body('nombreCorto').notEmpty().withMessage('El nombre corto es obligatorio')
+  body('nombre').trim().notEmpty().withMessage('El nombre es obligatorio').isLength({ max: 100 }).withMessage('El nombre no puede exceder los 100 caracteres.'),
+  body('nombreCorto').trim().notEmpty().withMessage('El nombre corto es obligatorio').isLength({ max: 20 }).withMessage('El nombre corto no puede exceder los 20 caracteres.'),
+  body('descripcion').optional({ checkFalsy: true }).trim().isLength({ max: 255 }).withMessage('La descripción no puede exceder los 255 caracteres.'),
+  body('enfermedadPrevine').optional({ checkFalsy: true }).trim().isLength({ max: 100 }).withMessage('La enfermedad no puede exceder los 100 caracteres.')
 ];
 
 router.get('/', ctrl.listar);

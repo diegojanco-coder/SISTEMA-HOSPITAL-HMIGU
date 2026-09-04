@@ -8,10 +8,55 @@ export const MENSAJES = {
 };
 
 const letras = /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+(?:\s+[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+)*$/u;
-const email = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const telefonoRegex = /^\d{7,15}$/;
+const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
+
 export const limpiar = (valor) => typeof valor === 'string' ? valor.trim() : valor;
-export const reglasNombre = (mensaje) => ({ required: mensaje, setValueAs: limpiar, minLength: { value: 2, message: mensaje }, maxLength: { value: 100, message: mensaje }, pattern: { value: letras, message: mensaje } });
-export const reglasEmail = { required: MENSAJES.email, setValueAs: limpiar, pattern: { value: email, message: MENSAJES.email } };
-export const reglasTelefono = { required: MENSAJES.telefono, setValueAs: limpiar, pattern: { value: /^\d{7,15}$/, message: MENSAJES.telefono } };
-export const reglasPassword = { required: MENSAJES.password, pattern: { value: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/, message: MENSAJES.password } };
+
+export const reglasNombre = (mensaje) => ({
+  setValueAs: limpiar,
+  required: mensaje,
+  validate: (valor) => {
+    const texto = String(valor ?? '').trim();
+    return (texto.length >= 2 && texto.length <= 100 && letras.test(texto)) || mensaje;
+  }
+});
+
+export const reglasEmail = {
+  setValueAs: limpiar,
+  validate: (valor) => {
+    const texto = String(valor ?? '').trim();
+    return texto === '' || emailRegex.test(texto) || MENSAJES.email;
+  }
+};
+
+export const reglasTelefono = {
+  setValueAs: limpiar,
+  validate: (valor) => {
+    const texto = String(valor ?? '').trim();
+    return texto === '' || telefonoRegex.test(texto) || MENSAJES.telefono;
+  }
+};
+
+export const reglasPassword = {
+  setValueAs: limpiar,
+  required: MENSAJES.password,
+  validate: (valor) => {
+    const texto = String(valor ?? '');
+    return passwordRegex.test(texto) || MENSAJES.password;
+  }
+};
+
+export const reglasFechaNacimiento = {
+  required: MENSAJES.fecha,
+  validate: (valor) => {
+    if (!valor) return MENSAJES.fecha;
+    const fecha = new Date(`${valor}T00:00:00`);
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    return fecha <= hoy || MENSAJES.fecha;
+  }
+};
+
 export const fechaMaxima = new Date().toISOString().slice(0, 10);

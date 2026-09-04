@@ -44,7 +44,7 @@ export default function Login() {
             type="text"
             className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-hospital-celeste"
             placeholder="admin"
-            {...register('login', { required: 'Este campo es obligatorio', setValueAs: (v) => v.trim() })}
+            {...register('login', { required: 'Este campo es obligatorio', setValueAs: (v) => typeof v === 'string' ? v.trim() : v })}
           />
           {errors.login && <p className="text-xs text-hospital-rojo mt-1">{errors.login.message}</p>}
         </div>
@@ -55,7 +55,10 @@ export default function Login() {
             type="password"
             className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-hospital-celeste"
             placeholder="••••••••"
-            {...register('password', reglasPassword)}
+            {...register('password', {
+              required: 'La contraseña es obligatoria',
+              validate: (valor) => /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(String(valor ?? '')) || 'La contraseña debe tener al menos 8 caracteres, incluir una mayúscula, una minúscula y un número.'
+            })}
           />
           {errors.password && <p className="text-xs text-hospital-rojo mt-1">{errors.password.message}</p>}
         </div>

@@ -11,7 +11,6 @@ class PacienteError extends Error {
 function validarReglasPaciente(data) {
   const fecha = new Date(`${data.fechaNacimiento}T00:00:00`);
   if (Number.isNaN(fecha.getTime()) || fecha > new Date()) throw new PacienteError('La fecha de nacimiento no puede ser posterior a la fecha actual');
-  if (!data.email || !/^\S+@\S+\.\S+$/.test(data.email)) throw new PacienteError('El paciente debe contar con un correo electrónico válido');
   if (calcularEdadExacta(data.fechaNacimiento).anios < 18 && !data.tutorId) throw new PacienteError('Todo paciente menor de 18 años debe estar vinculado a un tutor');
 }
 

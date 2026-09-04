@@ -13,10 +13,10 @@ const reglaTexto = (campo, etiqueta) => body(campo).trim().matches(/^[A-Za-zÁÉ
 const reglasTutor = [
   reglaTexto('nombres', 'Nombre'),
   reglaTexto('apellidos', 'Apellido'),
-  body('carnetIdentidad').notEmpty().withMessage('El carnet de identidad es obligatorio'),
-  body('parentesco').isIn(['padre', 'madre', 'tutor_legal', 'otro']),
-  body('telefono').trim().matches(/^\\d{7,15}$/).withMessage('El número de teléfono debe ser válido y contener entre 7 y 15 dígitos.'),
-  body('email').trim().isEmail().withMessage('Por favor, ingrese un correo electrónico válido.')
+  body('carnetIdentidad').trim().notEmpty().withMessage('El carnet de identidad es obligatorio').isLength({ max: 10 }).withMessage('El CI no puede exceder los 10 caracteres.'),
+  body('parentesco').isLength({ max: 30 }).withMessage('El parentesco no puede exceder los 30 caracteres.').isIn(['padre', 'madre', 'tutor_legal', 'otro']),
+  body('telefono').optional({ checkFalsy: true }).trim().isLength({ max: 15 }).withMessage('El teléfono no puede exceder los 15 caracteres.').matches(/^\d{7,15}$/).withMessage('El número de teléfono debe ser válido y contener entre 7 y 15 dígitos.'),
+  body('email').optional({ checkFalsy: true }).trim().isLength({ max: 100 }).withMessage('El email no puede exceder los 100 caracteres.').isEmail().withMessage('Por favor, ingrese un correo electrónico válido.')
 ];
 
 router.get('/', ctrl.listar);
