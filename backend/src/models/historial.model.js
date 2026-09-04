@@ -31,19 +31,20 @@ async function existeRegistro(pacienteId, dosisId) {
 
 async function create(data) {
   const [result] = await pool.query(
-    `INSERT INTO historial_vacunacion (paciente_id, dosis_id, usuario_id, fecha_aplicacion, lote, establecimiento, observaciones)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [data.pacienteId, data.dosisId, data.usuarioId || null, data.fechaAplicacion,
-     data.lote || null, data.establecimiento || 'Hospital Materno Germán Urquidi', data.observaciones || null]
+    `INSERT INTO historial_vacunacion
+      (paciente_id, dosis_id, usuario_id, cita_id, lote_vacuna_id, fecha_aplicacion, establecimiento, observaciones)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [data.pacienteId, data.dosisId, data.usuarioId || null, data.citaId, data.loteVacunaId,
+     data.fechaAplicacion, data.establecimiento || 'Hospital Materno Germán Urquidi', data.observaciones || null]
   );
   return findById(result.insertId);
 }
 
 async function update(id, data) {
   await pool.query(
-    `UPDATE historial_vacunacion SET fecha_aplicacion = ?, lote = ?, establecimiento = ?, observaciones = ?
+    `UPDATE historial_vacunacion SET fecha_aplicacion = ?, establecimiento = ?, observaciones = ?
      WHERE id = ?`,
-    [data.fechaAplicacion, data.lote || null, data.establecimiento || 'Hospital Materno Germán Urquidi',
+    [data.fechaAplicacion, data.establecimiento || 'Hospital Materno Germán Urquidi',
      data.observaciones || null, id]
   );
   return findById(id);

@@ -7,7 +7,7 @@ const auditar = require('../middlewares/audit.middleware');
 const ctrl = require('../controllers/cita.controller');
 
 const router = Router();
-router.post('/', auth, roles('enfermero', 'administrador'), [
+router.post('/', auth, roles('administrador'), [
   body('pacienteId').isInt(), body('dosisAplicadas').isArray({ min: 1 }),
   body('observaciones').optional({ checkFalsy: true }).isLength({ max: 255 }).withMessage('Las observaciones no pueden exceder los 255 caracteres.'),
   body('dosisAplicadas.*.dosisId').isInt(), body('dosisAplicadas.*.loteVacunaId').isInt(),

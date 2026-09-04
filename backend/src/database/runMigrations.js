@@ -21,6 +21,7 @@ async function ejecutarArchivoSQL(connection, rutaArchivo) {
 
 async function main() {
   const incluirSeed = process.argv.includes('--seed');
+  const permitirReinicio = process.argv.includes('--reset');
 
   // Conexión sin base de datos seleccionada, porque schema.sql la crea.
   const connection = await mysql.createConnection({
@@ -32,6 +33,13 @@ async function main() {
   });
 
   try {
+    const [bases] = await connection.query(
+      'SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = ?',
+      [db.database]
+    );
+    if (bases.length > 0 && !permitirReinicio) {
+      throw new Error(`La base de datos ${db.database} ya existe. Use --reset solo si desea recrearla y perder sus datos.`);
+    }
     await ejecutarArchivoSQL(connection, path.join(__dirname, 'schema.sql'));
     if (incluirSeed) {
       await ejecutarArchivoSQL(connection, path.join(__dirname, 'seed.sql'));

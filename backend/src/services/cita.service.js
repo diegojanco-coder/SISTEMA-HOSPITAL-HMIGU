@@ -1,10 +1,19 @@
 const { pool } = require('../config/db');
 const alertaService = require('./alerta.service');
+const { esFechaISOValida } = require('../utils/validation.util');
 
 class CitaError extends Error { constructor(message, status = 422) { super(message); this.status = status; } }
 
 async function registrarCita({ pacienteId, usuarioId, fechaHora, observaciones, dosisAplicadas }) {
   if (!Array.isArray(dosisAplicadas) || dosisAplicadas.length === 0) throw new CitaError('La cita debe incluir al menos una dosis aplicada');
+  for (const item of dosisAplicadas) {
+    if (item.fechaAplicacion && !esFechaISOValida(String(item.fechaAplicacion).slice(0, 10))) {
+      throw new CitaError('La fecha de aplicación no es válida');
+    }
+    if (item.fechaAplicacion && new Date(`${item.fechaAplicacion}T00:00:00`) > new Date()) {
+      throw new CitaError('La fecha de aplicación no puede ser futura');
+    }
+  }
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -14,10 +23,17 @@ async function registrarCita({ pacienteId, usuarioId, fechaHora, observaciones, 
     const registros = [];
     for (const item of dosisAplicadas) {
       const [[lote]] = await connection.query(
-        `SELECT l.id, l.vacuna_id, l.fecha_vencimiento, l.cantidad_disponible, l.estado, d.id AS dosis_id, d.vacuna_id AS dosis_vacuna_id
-         FROM lotes_vacuna l INNER JOIN dosis d ON d.id = ? WHERE l.id = ? FOR UPDATE`, [item.dosisId, item.loteVacunaId]
+        `SELECT l.id, l.vacuna_id, l.fecha_vencimiento, l.cantidad_disponible, l.estado,
+                d.id AS dosis_id, d.vacuna_id AS dosis_vacuna_id, d.estado AS dosis_estado,
+                v.estado AS vacuna_estado
+         FROM lotes_vacuna l
+         INNER JOIN dosis d ON d.id = ?
+         INNER JOIN vacunas v ON v.id = d.vacuna_id
+         WHERE l.id = ? FOR UPDATE`, [item.dosisId, item.loteVacunaId]
       );
-      if (!lote || lote.vacuna_id !== lote.dosis_vacuna_id) throw new CitaError('El lote no corresponde a la vacuna de la dosis seleccionada');
+      if (!lote || lote.vacuna_id !== lote.dosis_vacuna_id || lote.dosis_estado !== 'activo' || lote.vacuna_estado !== 'activo') {
+        throw new CitaError('La dosis o el lote seleccionado no está activo o no corresponde a la vacuna indicada');
+      }
       if (lote.estado !== 'activo' || new Date(lote.fecha_vencimiento) <= new Date() || lote.cantidad_disponible < 1) throw new CitaError('El lote está vencido, inactivo o sin stock', 409);
       const [[duplicada]] = await connection.query('SELECT id FROM historial_vacunacion WHERE paciente_id = ? AND dosis_id = ?', [pacienteId, item.dosisId]);
       if (duplicada) throw new CitaError('Esta dosis ya fue registrada previamente para el paciente', 409);

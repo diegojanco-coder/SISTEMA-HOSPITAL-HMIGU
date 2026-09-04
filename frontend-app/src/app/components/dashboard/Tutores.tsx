@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Plus, Search, X, UserSquare2 } from 'lucide-react';
-import { errorLongitud, errorNumerico, LIMITES_TEXTO, normalizarEspacios, validateForm } from '../../../lib/validaciones';
+import { errorCI, errorEmail, errorLongitud, errorNombre, errorTelefono, LIMITES_TEXTO, normalizarEspacios, validateForm } from '../../../lib/validaciones';
 import { listarTutores, crearTutor, actualizarTutor, eliminarTutor, type DatosTutor } from '../../../services/tutores.service';
 import type { Tutor } from '../../../lib/types';
 
@@ -130,7 +130,7 @@ function TutorModal({ tutor, onClose, onSaved }: { tutor: Tutor | null; onClose:
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const validacion = validateForm(form, { nombres: LIMITES_TEXTO.tutor, apellidos: LIMITES_TEXTO.tutor, carnetIdentidad: LIMITES_TEXTO.ci, telefono: LIMITES_TEXTO.telefono, email: LIMITES_TEXTO.email }, { nombres: 'nombre', apellidos: 'apellido', carnetIdentidad: 'CI', telefono: 'teléfono', email: 'email' });
-    const errorFormato = errorNumerico(form.carnetIdentidad, 'CI', true) || errorNumerico(form.telefono, 'teléfono');
+    const errorFormato = errorNombre(form.nombres, 'nombre') || errorNombre(form.apellidos, 'apellido') || errorCI(form.carnetIdentidad, true) || errorTelefono(form.telefono, true) || errorEmail(form.email, true);
     if (validacion || errorFormato) { setErrorMsg(validacion || errorFormato); return; }
     setGuardando(true);
     setErrorMsg('');
@@ -168,7 +168,7 @@ function TutorModal({ tutor, onClose, onSaved }: { tutor: Tutor | null; onClose:
             <div><label className={labelClass} style={fontBody}>Carnet de Identidad *</label>
               <input required maxLength={LIMITES_TEXTO.ci} inputMode="numeric" value={form.carnetIdentidad} onChange={(e) => setForm({ ...form, carnetIdentidad: normalizarEspacios(e.target.value) })} className={`${inputClass} ${errorLongitud(form.carnetIdentidad, LIMITES_TEXTO.ci, 'CI') || errorNumerico(form.carnetIdentidad, 'CI', true) ? 'border-red-500 ring-2 ring-red-500/20' : ''}`} style={fontBody} />
               {errorLongitud(form.carnetIdentidad, LIMITES_TEXTO.ci, 'CI') && <p className="text-xs text-red-600">{errorLongitud(form.carnetIdentidad, LIMITES_TEXTO.ci, 'CI')}</p>}
-              {errorNumerico(form.carnetIdentidad, 'CI', true) && <p className="text-xs text-red-600">{errorNumerico(form.carnetIdentidad, 'CI', true)}</p>}</div>
+              {errorCI(form.carnetIdentidad, true) && <p className="text-xs text-red-600">{errorCI(form.carnetIdentidad, true)}</p>}</div>
             <div><label className={labelClass} style={fontBody}>Parentesco</label>
               <select value={form.parentesco} onChange={(e) => setForm({ ...form, parentesco: e.target.value as any })} className={inputClass} style={fontBody}>
                 <option value="madre">Madre</option><option value="padre">Padre</option>
@@ -177,10 +177,11 @@ function TutorModal({ tutor, onClose, onSaved }: { tutor: Tutor | null; onClose:
             <div><label className={labelClass} style={fontBody}>Teléfono</label>
               <input maxLength={LIMITES_TEXTO.telefono} inputMode="numeric" value={form.telefono} onChange={(e) => setForm({ ...form, telefono: normalizarEspacios(e.target.value) })} className={`${inputClass} ${errorLongitud(form.telefono, LIMITES_TEXTO.telefono, 'teléfono') || errorNumerico(form.telefono, 'teléfono') ? 'border-red-500 ring-2 ring-red-500/20' : ''}`} style={fontBody} />
               {errorLongitud(form.telefono, LIMITES_TEXTO.telefono, 'teléfono') && <p className="text-xs text-red-600">{errorLongitud(form.telefono, LIMITES_TEXTO.telefono, 'teléfono')}</p>}
-              {errorNumerico(form.telefono, 'teléfono') && <p className="text-xs text-red-600">{errorNumerico(form.telefono, 'teléfono')}</p>}</div>
+              {errorTelefono(form.telefono, true) && <p className="text-xs text-red-600">{errorTelefono(form.telefono, true)}</p>}</div>
             <div><label className={labelClass} style={fontBody}>Correo Electrónico</label>
               <input maxLength={LIMITES_TEXTO.email} value={form.email} onChange={(e) => setForm({ ...form, email: normalizarEspacios(e.target.value) })} className={`${inputClass} ${errorLongitud(form.email, LIMITES_TEXTO.email, 'email') ? 'border-red-500 ring-2 ring-red-500/20' : ''}`} style={fontBody} />
               {errorLongitud(form.email, LIMITES_TEXTO.email, 'email') && <p className="text-xs text-red-600">{errorLongitud(form.email, LIMITES_TEXTO.email, 'email')}</p>}</div>
+              {errorEmail(form.email, true) && <p className="text-xs text-red-600">{errorEmail(form.email, true)}</p>}
             <div className="md:col-span-2"><label className={labelClass} style={fontBody}>Dirección</label>
               <input value={form.direccion} onChange={(e) => setForm({ ...form, direccion: e.target.value })} className={inputClass} style={fontBody} /></div>
           </div>

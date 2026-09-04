@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import Card from '../components/ui/Card.jsx';
 import Table from '../components/ui/Table.jsx';
 import SearchBar from '../components/ui/SearchBar.jsx';
-import AlertaBadge from '../components/vacunacion/AlertaBadge.jsx';
 import { useDebounce } from '../hooks/useDebounce';
 import { listarPacientes } from '../services/pacientes.service';
 

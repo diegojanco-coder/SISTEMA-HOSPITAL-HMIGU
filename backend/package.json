@@ -8,7 +8,8 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "migrate": "node src/database/runMigrations.js",
-    "seed": "node src/database/runMigrations.js --seed",
+    "migrate:reset": "node src/database/runMigrations.js --reset",
+    "seed": "node src/database/runMigrations.js --seed --reset",
     "backup": "node -e \"require('./src/services/backup.service').runBackup().then(()=>process.exit(0))\""
   },
   "keywords": [

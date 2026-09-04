@@ -14,7 +14,7 @@ import { listarHistorialPorPaciente, registrarAplicacion } from '../../../servic
 import { listarLotesDisponibles, type LoteDisponible } from '../../../services/lotes.service';
 import { useAuth } from '../../../lib/auth-context';
 import type { EsquemaPaciente, HistorialItem, Paciente } from '../../../lib/types';
-import { errorLongitud, errorNumerico, LIMITES_TEXTO, normalizarEspacios, validateForm } from '../../../lib/validaciones';
+import { errorCI, errorEmail, errorFechaNacimiento, errorLongitud, errorNombre, errorNumerico, errorTelefono, LIMITES_TEXTO, normalizarEspacios, validateForm } from '../../../lib/validaciones';
 import StatusBadge from '../shared/StatusBadge';
 
 const inputClass =
@@ -230,6 +230,7 @@ function PatientFormModal({
     sexo: (paciente?.sexo || 'F') as 'M' | 'F',
     direccion: paciente?.direccion || '',
     telefonoContacto: paciente?.telefono_contacto || '',
+    email: '',
   });
   const [tutor, setTutor] = useState({
     nombres: '', apellidos: '', carnetIdentidad: '', parentesco: 'madre' as const, telefono: '', email: '',
@@ -238,7 +239,7 @@ function PatientFormModal({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const validacion = validateForm(form, { nombres: LIMITES_TEXTO.nombre, apellidos: LIMITES_TEXTO.apellido, carnetIdentidad: LIMITES_TEXTO.ci, telefonoContacto: LIMITES_TEXTO.telefono }, { nombres: 'nombre', apellidos: 'apellido', carnetIdentidad: 'CI', telefonoContacto: 'teléfono' });
-    const errorFormato = errorNumerico(form.telefonoContacto, 'teléfono de contacto') || errorNumerico(form.carnetIdentidad, 'CI');
+    const errorFormato = errorNombre(form.nombres, 'nombre') || errorNombre(form.apellidos, 'apellido') || errorCI(form.carnetIdentidad) || errorTelefono(form.telefonoContacto) || errorEmail(form.email) || errorFechaNacimiento(form.fechaNacimiento);
     if (validacion || errorFormato) { setErrorMsg(validacion || errorFormato); return; }
     setGuardando(true);
     setErrorMsg('');
@@ -246,10 +247,8 @@ function PatientFormModal({
       const payload: DatosPaciente = { ...form };
       if (modo === 'crear') {
         const nuevo = await crearPaciente(payload);
-        if (tutor.nombres && tutor.apellidos && tutor.carnetIdentidad) {
-          await crearTutor({ ...tutor, pacienteId: nuevo.id }).catch(() => {
-            // si el tutor ya existe (CI duplicado) no bloqueamos el registro del paciente
-          });
+        if (tutor.nombres || tutor.apellidos || tutor.carnetIdentidad || tutor.telefono || tutor.email) {
+          await crearTutor({ ...tutor, pacienteId: nuevo.id });
         }
       } else if (paciente) {
         await actualizarPaciente(paciente.id, payload);
@@ -296,11 +295,12 @@ function PatientFormModal({
                 <label className={labelClass} style={fontBody}>Carnet de Identidad</label>
                 <input maxLength={LIMITES_TEXTO.ci} value={form.carnetIdentidad} onChange={(e) => setForm({ ...form, carnetIdentidad: normalizarEspacios(e.target.value) })} className={`${inputClass} ${errorLongitud(form.carnetIdentidad, LIMITES_TEXTO.ci, 'CI') || errorNumerico(form.carnetIdentidad, 'CI') ? 'border-red-500 ring-2 ring-red-500/20' : ''}`} style={fontBody} />
                 {errorLongitud(form.carnetIdentidad, LIMITES_TEXTO.ci, 'CI') && <p className="text-xs text-red-600 mt-1">{errorLongitud(form.carnetIdentidad, LIMITES_TEXTO.ci, 'CI')}</p>}
-                {errorNumerico(form.carnetIdentidad, 'CI') && <p className="text-xs text-red-600 mt-1">{errorNumerico(form.carnetIdentidad, 'CI')}</p>}
+                {errorCI(form.carnetIdentidad) && <p className="text-xs text-red-600 mt-1">{errorCI(form.carnetIdentidad)}</p>}
               </div>
               <div>
                 <label className={labelClass} style={fontBody}>Fecha de Nacimiento *</label>
                 <input required type="date" value={form.fechaNacimiento} onChange={(e) => setForm({ ...form, fechaNacimiento: e.target.value })} className={inputClass} style={fontBody} />
+                {errorFechaNacimiento(form.fechaNacimiento) && <p className="text-xs text-red-600 mt-1">{errorFechaNacimiento(form.fechaNacimiento)}</p>}
               </div>
               <div>
                 <label className={labelClass} style={fontBody}>Sexo *</label>
@@ -313,7 +313,12 @@ function PatientFormModal({
                 <label className={labelClass} style={fontBody}>Teléfono de Contacto</label>
                 <input maxLength={LIMITES_TEXTO.telefono} inputMode="numeric" value={form.telefonoContacto} onChange={(e) => setForm({ ...form, telefonoContacto: normalizarEspacios(e.target.value) })} className={`${inputClass} ${errorLongitud(form.telefonoContacto, LIMITES_TEXTO.telefono, 'teléfono') || errorNumerico(form.telefonoContacto, 'teléfono de contacto') ? 'border-red-500 ring-2 ring-red-500/20' : ''}`} style={fontBody} />
                 {errorLongitud(form.telefonoContacto, LIMITES_TEXTO.telefono, 'teléfono') && <p className="text-xs text-red-600 mt-1">{errorLongitud(form.telefonoContacto, LIMITES_TEXTO.telefono, 'teléfono')}</p>}
-                {errorNumerico(form.telefonoContacto, 'teléfono de contacto') && <p className="text-xs text-red-600 mt-1">{errorNumerico(form.telefonoContacto, 'teléfono de contacto')}</p>}
+                {errorTelefono(form.telefonoContacto) && <p className="text-xs text-red-600 mt-1">{errorTelefono(form.telefonoContacto)}</p>}
+              </div>
+              <div>
+                <label className={labelClass} style={fontBody}>Correo Electrónico</label>
+                <input type="email" maxLength={LIMITES_TEXTO.email} value={form.email} onChange={(e) => setForm({ ...form, email: normalizarEspacios(e.target.value) })} className={`${inputClass} ${errorEmail(form.email) ? 'border-red-500 ring-2 ring-red-500/20' : ''}`} style={fontBody} />
+                {errorEmail(form.email) && <p className="text-xs text-red-600 mt-1">{errorEmail(form.email)}</p>}
               </div>
               <div className="md:col-span-2">
                 <label className={labelClass} style={fontBody}>Dirección</label>

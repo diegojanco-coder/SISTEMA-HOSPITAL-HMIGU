@@ -19,7 +19,10 @@ function errorMiddleware(err, req, res, next) {
   }
 
   const status = err.status || 500;
-  return fail(res, err.message || 'Error interno del servidor', status);
+  const mensaje = status >= 500
+    ? 'No se pudo completar la operación. Intente nuevamente.'
+    : (err.message || 'No se pudo completar la operación.');
+  return fail(res, mensaje, status);
 }
 
 function notFoundMiddleware(req, res) {

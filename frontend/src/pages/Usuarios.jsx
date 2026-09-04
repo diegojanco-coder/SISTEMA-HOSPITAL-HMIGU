@@ -7,14 +7,13 @@ import Table from '../components/ui/Table.jsx';
 import Modal from '../components/ui/Modal.jsx';
 import Badge from '../components/ui/Badge.jsx';
 import { listarUsuarios, crearUsuario, actualizarUsuario, eliminarUsuario } from '../services/usuarios.service';
-import { reglasPassword } from '../lib/validaciones.js';
 
 export default function Usuarios() {
   const [usuarios, setUsuarios] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [modalAbierto, setModalAbierto] = useState(false);
   const [editando, setEditando] = useState(null);
-  const { register, handleSubmit, reset, formState: { errors } } = useForm();
+  const { register, handleSubmit, reset } = useForm();
 
   const cargar = useCallback(async () => {
     setCargando(true);

@@ -5,6 +5,10 @@
  */
 require('dotenv').config();
 
+if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
+  throw new Error('JWT_SECRET es obligatorio en producción');
+}
+
 module.exports = {
   env: process.env.NODE_ENV || 'development',
   port: Number(process.env.PORT) || 4000,
@@ -19,7 +23,7 @@ module.exports = {
   },
 
   jwt: {
-    secret: process.env.JWT_SECRET || 'insecure_default_change_me',
+    secret: process.env.JWT_SECRET || 'development-only-secret-change-me',
     expiresIn: process.env.JWT_EXPIRES_IN || '8h'
   },
 

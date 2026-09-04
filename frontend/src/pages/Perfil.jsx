@@ -5,12 +5,11 @@ import Card from '../components/ui/Card.jsx';
 import Button from '../components/ui/Button.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { cambiarPassword } from '../services/usuarios.service';
-import { reglasPassword } from '../lib/validaciones.js';
 import { ejecutarBackup, listarBackups } from '../services/backup.service';
 
 export default function Perfil() {
   const { usuario, esAdmin } = useAuth();
-  const { register, handleSubmit, reset, formState: { errors } } = useForm();
+  const { register, handleSubmit, reset } = useForm();
   const [backups, setBackups] = useState([]);
   const [generando, setGenerando] = useState(false);
 

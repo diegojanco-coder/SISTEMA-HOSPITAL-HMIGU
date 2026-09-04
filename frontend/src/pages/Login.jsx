@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import { useAuth } from '../context/AuthContext.jsx';
 import Button from '../components/ui/Button.jsx';
-import { reglasPassword } from '../lib/validaciones.js';
 
 export default function Login() {
   const { register, handleSubmit, formState: { errors } } = useForm();
