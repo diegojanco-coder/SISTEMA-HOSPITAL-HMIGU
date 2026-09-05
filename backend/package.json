@@ -10,7 +10,9 @@
     "migrate": "node src/database/runMigrations.js",
     "migrate:reset": "node src/database/runMigrations.js --reset",
     "seed": "node src/database/runMigrations.js --seed --reset",
-    "backup": "node -e \"require('./src/services/backup.service').runBackup().then(()=>process.exit(0))\""
+    "backup": "node -e \"require('./src/services/backup.service').runBackup().then(()=>process.exit(0))\"",
+    "test": "node --test test/*.test.cjs",
+    "test:coverage": "node --test --experimental-test-coverage test/*.test.cjs"
   },
   "keywords": [
     "vacunacion",
