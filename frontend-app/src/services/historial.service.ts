@@ -15,8 +15,15 @@ export interface DatosAplicacion {
   observaciones?: string;
 }
 
+export interface ResultadoAplicacion {
+  id: number;
+  pacienteId: number;
+  dosisAplicadas: { id: number; dosisId: number; loteVacunaId: number }[];
+  advertencias?: { codigo: string; mensaje: string }[];
+}
+
 export async function registrarAplicacion(payload: DatosAplicacion) {
-  const { data } = await api.post<{ data: HistorialItem }>('/citas', {
+  const { data } = await api.post<{ data: ResultadoAplicacion }>('/citas', {
     pacienteId: payload.pacienteId,
     observaciones: payload.observaciones,
     dosisAplicadas: [{

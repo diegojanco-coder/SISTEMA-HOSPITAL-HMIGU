@@ -207,7 +207,7 @@ export default function Pacientes() {
           paciente={selectedPatient}
           aplicadoPor={usuario?.nombre || ''}
           onClose={() => setShowAddVaccine(false)}
-          onSaved={() => { setShowAddVaccine(false); cargar(); }}
+          onSaved={() => { setShowAddVaccine(false); setShowPatientProfile(false); cargar(); }}
         />
       )}
     </div>
@@ -549,6 +549,7 @@ export function AddVaccineModal({
   const [observaciones, setObservaciones] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [advertencias, setAdvertencias] = useState<string[] | null>(null);
 
   useEffect(() => {
     obtenerEsquemaPaciente(paciente.id).then(setEsquema);
@@ -565,6 +566,7 @@ export function AddVaccineModal({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (guardando || advertencias !== null) return;
     if (!dosisId) { setErrorMsg('Seleccione una dosis'); return; }
     if (!loteId) { setErrorMsg('Seleccione un lote'); return; }
     const validacion = validateForm({ observaciones }, { observaciones: 255 }, { observaciones: 'observaciones' });
@@ -572,14 +574,18 @@ export function AddVaccineModal({
     setGuardando(true);
     setErrorMsg('');
     try {
-      await registrarAplicacion({
+      const resultado = await registrarAplicacion({
         pacienteId: paciente.id,
         dosisId: Number(dosisId),
         fechaAplicacion: fecha,
         loteVacunaId: Number(loteId),
         observaciones,
       });
-      onSaved();
+      if (resultado.advertencias?.length) {
+        setAdvertencias(resultado.advertencias.map((aviso) => aviso.mensaje));
+      } else {
+        onSaved();
+      }
     } catch (err: any) {
       setErrorMsg(err?.response?.data?.message || 'No se pudo registrar la vacuna');
     } finally {
@@ -595,12 +601,20 @@ export function AddVaccineModal({
             <h3 className="text-2xl font-bold" style={fontHeading}>Registrar Vacuna</h3>
             <p className="text-white/90 text-sm" style={fontBody}>Paciente: {paciente.nombres} {paciente.apellidos}</p>
           </div>
-          <button onClick={onClose} className="p-2 rounded-lg bg-white/20 hover:bg-white/30 transition-colors">
+          <button disabled={guardando} onClick={advertencias !== null ? onSaved : onClose} aria-label="Cerrar" className="p-2 rounded-lg bg-white/20 hover:bg-white/30 transition-colors">
             <X className="w-6 h-6 text-white" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        {advertencias !== null ? (
+          <div className="p-6 space-y-4">
+            <div role="status" className="p-4 rounded-lg bg-amber-50 border border-amber-300 text-amber-900">
+              <h4 className="font-bold mb-2">Vacunación registrada</h4>
+              {advertencias.map((mensaje, index) => <p key={index}>{mensaje}</p>)}
+            </div>
+            <button type="button" onClick={onSaved} className="px-6 py-3 rounded-lg bg-teal-600 text-white font-semibold">Entendido</button>
+          </div>
+        ) : <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {errorMsg && <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">{errorMsg}</div>}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -640,12 +654,12 @@ export function AddVaccineModal({
           </div>
 
           <div className="flex items-center justify-end gap-3 border-t border-gray-200 pt-6">
-            <button type="button" onClick={onClose} className="px-6 py-3 rounded-lg border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition-colors">Cancelar</button>
+            <button type="button" disabled={guardando} onClick={onClose} className="px-6 py-3 rounded-lg border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition-colors">Cancelar</button>
             <button type="submit" disabled={guardando} className="px-6 py-3 rounded-lg bg-gradient-to-r from-green-500 to-teal-600 text-white font-semibold hover:scale-105 transition-transform shadow-lg disabled:opacity-60">
               {guardando ? 'Guardando...' : 'Registrar Vacuna'}
             </button>
           </div>
-        </form>
+        </form>}
       </div>
     </div>
   );
