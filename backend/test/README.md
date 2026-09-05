@@ -38,10 +38,12 @@ parámetros y control de transacciones; no demuestran atomicidad o concurrencia 
 Faltan pruebas HTTP de rutas/validadores, JWT real, integración con MySQL,
 motor de vacunación, alertas y los dos frontends.
 
-Observación de revisión: registrarCita confirma la transacción antes de generar alertas.
-Si generarAlertasPaciente falla, el catch intenta rollback y devuelve error aunque los datos
-ya se confirmaron. Conviene definir el contrato de este fallo y añadir una regresión junto
-con su corrección; esta propuesta no modifica comportamiento productivo.
+registrarCita libera la conexión después del commit y luego genera las alertas.
+Si las alertas fallan, conserva la respuesta de creación y añade data.advertencias
+con el código ALERTAS_NO_ACTUALIZADAS. No intenta rollback ni repite las dosis.
+El caso exitoso mantiene su respuesta habitual. Se incluyen regresiones para este fallo
+y para un error al confirmar la transacción. El frontend todavía no muestra estas
+advertencias; la API las expone. No se añade un mecanismo de reintento de alertas.
 
 La terminal local no pudo iniciar por un error de preparación del entorno
 (helper_unknown_error). La validación reproducible se realiza mediante GitHub Actions;

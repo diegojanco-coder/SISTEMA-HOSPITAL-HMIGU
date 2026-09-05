@@ -54,13 +54,13 @@ function fixture(options = {}) {
       }
       throw new Error('Unexpected SQL: ' + sql);
     },
-    async commit() { events.push('commit'); },
+    async commit() { events.push('commit'); if (options.commitError) throw options.commitError; },
     async rollback() { events.push('rollback'); },
     release() { events.push('release'); },
   };
   const service = load('services/cita.service.js', {
     '../config/db': { pool: { async getConnection() { events.push('connect'); return connection; } } },
-    './alerta.service': { async generarAlertasPaciente(id) { assert.equal(id, 9); events.push('alerts'); } },
+    './alerta.service': { async generarAlertasPaciente(id) { assert.equal(id, 9); events.push('alerts'); if (options.alertError) throw options.alertError; } },
   }, { Date: FixedDate });
   return { ...service, events, queries };
 }
@@ -70,7 +70,7 @@ test('registers a dose, reserves stock and generates alerts after commit', async
   assert.deepEqual(await f.registrarCita(input), {
     id: 20, pacienteId: 9, dosisAplicadas: [{ id: 31, dosisId: 2, loteVacunaId: 3 }],
   });
-  assert.deepEqual(f.events, ['connect', 'begin', 'patient', 'appointment', 'lot', 'duplicate', 'history', 'stock', 'commit', 'alerts', 'release']);
+  assert.deepEqual(f.events, ['connect', 'begin', 'patient', 'appointment', 'lot', 'duplicate', 'history', 'stock', 'commit', 'release', 'alerts']);
   assert.deepEqual(f.queries.find((q) => q.sql.startsWith('INSERT INTO citas')).params, [9, 7, input.fechaHora, 'Control']);
   assert.deepEqual(f.queries.find((q) => q.sql.includes('FROM lotes_vacuna l')).params, [2, 3]);
   assert.deepEqual(f.queries.find((q) => q.sql.startsWith('SELECT id FROM historial')).params, [9, 2]);
@@ -156,5 +156,27 @@ test('propagates database failure and rolls back', async () => {
   assert.deepEqual(f.events.slice(-2), ['rollback', 'release']);
   assert.equal(f.events.includes('stock'), false);
   assert.equal(f.events.includes('commit'), false);
+  assert.equal(f.events.includes('alerts'), false);
+});
+
+test('returns the committed vaccination with a warning when alerts fail', async () => {
+  const f = fixture({ alertError: new Error('internal notification failure') });
+  const result = await f.registrarCita(input);
+  assert.deepEqual(result, {
+    id: 20, pacienteId: 9, dosisAplicadas: [{ id: 31, dosisId: 2, loteVacunaId: 3 }],
+    advertencias: [{
+      codigo: 'ALERTAS_NO_ACTUALIZADAS',
+      mensaje: 'La vacunación fue registrada, pero no se pudieron actualizar las alertas. No vuelva a registrar las dosis.',
+    }],
+  });
+  assert.deepEqual(f.events, ['connect', 'begin', 'patient', 'appointment', 'lot', 'duplicate', 'history', 'stock', 'commit', 'release', 'alerts']);
+  assert.equal(f.events.includes('rollback'), false);
+});
+
+test('propagates commit failure and never generates alerts', async () => {
+  const failure = new Error('commit failed');
+  const f = fixture({ commitError: failure });
+  await assert.rejects(f.registrarCita(input), (error) => error === failure);
+  assert.deepEqual(f.events.slice(-3), ['commit', 'rollback', 'release']);
   assert.equal(f.events.includes('alerts'), false);
 });
