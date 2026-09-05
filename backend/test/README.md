@@ -34,17 +34,41 @@ No se modifica la caché global de módulos.
 
 La cobertura emitida por Node corresponde a los archivos ejecutados: no representa por
 sí sola la cobertura global del repositorio. Los dobles SQL comprueban consultas,
-parámetros y control de transacciones; no demuestran atomicidad o concurrencia real de MySQL.
-Faltan pruebas HTTP de rutas/validadores, JWT real, integración con MySQL,
-motor de vacunación, alertas y los dos frontends.
+parámetros y control de transacciones. La suite adicional de integración sí ejecuta MySQL 8
+con las tablas reales y comprueba rollback, stock concurrente y dosis duplicadas.
+Falta ampliar la validación al motor de vacunación, alertas reales, auditoría y otros flujos.
 
 registrarCita libera la conexión después del commit y luego genera las alertas.
 Si las alertas fallan, conserva la respuesta de creación y añade data.advertencias
 con el código ALERTAS_NO_ACTUALIZADAS. No intenta rollback ni repite las dosis.
 El caso exitoso mantiene su respuesta habitual. Se incluyen regresiones para este fallo
-y para un error al confirmar la transacción. El frontend todavía no muestra estas
-advertencias; la API las expone. No se añade un mecanismo de reintento de alertas.
+y para un error al confirmar la transacción. frontend-app muestra estas advertencias hasta pulsar Entendido y retira el formulario
+para evitar repetir el envío. No se añade un mecanismo de reintento de alertas.
 
 La terminal local no pudo iniciar por un error de preparación del entorno
 (helper_unknown_error). La validación reproducible se realiza mediante GitHub Actions;
 consultar el resultado de sus jobs antes de integrar.
+
+## Integración HTTP y MySQL
+
+El workflow vaccination-integration.yml crea MySQL 8 desechable con datos ficticios.
+Ejecuta node --test test/integration/*.test.cjs después de npm ci.
+La suite exige NODE_ENV=test y DB_NAME=vacunacion_hmgu_test; la base debe estar vacía.
+Carga las definiciones reales de tablas sin ejecutar DROP/CREATE DATABASE del esquema.
+No usar esta base para datos que se quieran conservar: las fixtures borran sus tablas.
+
+Comprueba HTTP 201 con advertencia y datos persistidos, JWT real y permisos,
+rollback de varias dosis, competencia por la última unidad y solicitudes duplicadas.
+Solo se sustituyen las alertas y auditoría; se usan controlador, ruta, servicio y MySQL reales.
+
+## Interfaz
+
+El mismo workflow compila frontend y frontend-app. En frontend-app ejecuta tres
+pruebas de componentes con Vitest y jsdom: aviso hasta reconocimiento, éxito normal
+y error que conserva el formulario. Las llamadas API se simulan en estas pruebas;
+no equivalen a una prueba integral de navegador contra MySQL.
+Las herramientas de prueba se instalan con versiones explícitas desde el workflow.
+
+La interfaz frontend conserva su flujo anterior por /historial y no recibe esta mejora.
+No se ha validado aquí su registro de aplicaciones. Tampoco se certifica el sistema
+completo ni un despliegue de producción.

@@ -11,7 +11,7 @@ vi.mock('../src/services/lotes.service', () => ({
   listarLotesDisponibles: vi.fn().mockResolvedValue([{ id: 1, numero_lote: 'TEST' }]),
 }));
 afterEach(cleanup);
-beforeEach(() => vi.mocked(registrarAplicacion).mockReset());
+beforeEach(() => { vi.mocked(registrarAplicacion).mockReset(); });
 async function setup() {
   const onSaved = vi.fn();
   const view = render(<AddVaccineModal paciente={{ id: 1, nombres: 'Paciente', apellidos: 'Prueba' } as any} aplicadoPor="Test" onClose={vi.fn()} onSaved={onSaved} />);
