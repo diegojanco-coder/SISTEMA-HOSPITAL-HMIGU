@@ -15,6 +15,7 @@ async function registrarCita({ pacienteId, usuarioId, fechaHora, observaciones, 
     }
   }
   const connection = await pool.getConnection();
+  let resultado;
   try {
     await connection.beginTransaction();
     const [[paciente]] = await connection.query('SELECT id FROM pacientes WHERE id = ? AND estado = \'activo\' FOR UPDATE', [pacienteId]);
@@ -47,9 +48,19 @@ async function registrarCita({ pacienteId, usuarioId, fechaHora, observaciones, 
       registros.push({ id: aplicacion.insertId, dosisId: item.dosisId, loteVacunaId: item.loteVacunaId });
     }
     await connection.commit();
-    await alertaService.generarAlertasPaciente(pacienteId);
-    return { id: cita.insertId, pacienteId, dosisAplicadas: registros };
+    resultado = { id: cita.insertId, pacienteId, dosisAplicadas: registros };
   } catch (error) { await connection.rollback(); throw error; } finally { connection.release(); }
+
+  // La vacunación ya está confirmada; un fallo de alertas no debe invitar a repetirla.
+  try {
+    await alertaService.generarAlertasPaciente(pacienteId);
+  } catch {
+    resultado.advertencias = [{
+      codigo: 'ALERTAS_NO_ACTUALIZADAS',
+      mensaje: 'La vacunación fue registrada, pero no se pudieron actualizar las alertas. No vuelva a registrar las dosis.',
+    }];
+  }
+  return resultado;
 }
 
 module.exports = { registrarCita, CitaError };
