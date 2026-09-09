@@ -1,0 +1,25 @@
+const { test, mock, after } = require('node:test');
+const assert = require('node:assert/strict');
+const paciente = require('../src/models/paciente.model');
+const dosis = require('../src/models/dosis.model');
+const historial = require('../src/models/historial.model');
+const pdf = require('../src/utils/pdf.util');
+const { pool } = require('../src/config/db');
+after(() => pool.end());
+
+test('el carnet conserva aplicaciones aunque la vacuna ya no esté en el catálogo activo', async () => {
+  const tablas = [];
+  mock.method(pdf, 'dibujarTablaSimple', (_doc, options) => { tablas.push(options); return options.startY + 30; });
+  mock.method(paciente, 'findById', async () => ({ id: 1, codigo_paciente: 'TEST', nombres: 'Paciente', apellidos: 'Prueba', fecha_nacimiento: '2000-01-01', sexo: 'M' }));
+  mock.method(paciente, 'findTutoresByPacienteId', async () => []);
+  mock.method(dosis, 'findAllConVacuna', async () => []);
+  mock.method(historial, 'findByPacienteId', async () => [{ dosis_id: 9, vacuna_nombre: 'Vacuna retirada', nombre_dosis: 'Primera dosis', fecha_aplicacion: '2020-01-01', lote: 'HISTORICO' }]);
+  try {
+    const { generarCarnetPDF } = require('../src/services/carnet.service');
+    const doc = await generarCarnetPDF(1);
+    doc.resume();
+    doc.end();
+    assert.equal(tablas.length, 1);
+    assert.deepEqual(tablas[0].rows, [['Vacuna retirada', 'Primera dosis', '2020-01-01', 'HISTORICO']]);
+  } finally { mock.restoreAll(); }
+});

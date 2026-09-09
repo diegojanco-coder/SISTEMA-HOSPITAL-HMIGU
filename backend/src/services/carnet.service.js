@@ -31,7 +31,7 @@ async function generarCarnetPDF(pacienteId) {
   const tutores = await pacienteModel.findTutoresByPacienteId(pacienteId);
   const catalogoDosis = await dosisModel.findAllConVacuna();
   const historial = await historialModel.findByPacienteId(pacienteId);
-  const { edad, detalle } = motor.evaluarEsquema(paciente, catalogoDosis, historial);
+  const { edad, detalle, advertencia } = motor.evaluarEsquema(paciente, catalogoDosis, historial);
 
   const codigoVerificacion = generarCodigoVerificacion(pacienteId);
   const qrBuffer = await generarQRBuffer(
@@ -60,14 +60,15 @@ async function generarCarnetPDF(pacienteId) {
   let y = 235;
   doc.fontSize(12).fillColor(AZUL).text('Historial de vacunas aplicadas', 40, y);
   y += 20;
-  const aplicadas = detalle.filter((d) => d.estado === 'aplicada');
+  // El historial clínico permanece aunque se retire una vacuna del catálogo activo.
+  const aplicadas = historial;
   if (aplicadas.length === 0) {
     doc.fontSize(9).fillColor('#555').text('Aún no se registran vacunas aplicadas.', 40, y);
     y += 20;
   } else {
     y = dibujarTablaSimple(doc, {
       headers: ['Vacuna', 'Dosis', 'Fecha aplicación', 'Lote'],
-      rows: aplicadas.map((d) => [d.vacunaNombre, d.nombreDosis, d.fechaAplicacion, d.lote || '-']),
+      rows: aplicadas.map((d) => [d.vacuna_nombre, d.nombre_dosis, d.fecha_aplicacion, d.lote || '-']),
       startY: y,
       colWidths: [180, 150, 110, 75]
     });
@@ -79,7 +80,7 @@ async function generarCarnetPDF(pacienteId) {
   doc.fontSize(12).fillColor(AZUL).text('Próximas vacunas / pendientes', 40, y);
   y += 20;
   if (pendientesOProximas.length === 0) {
-    doc.fontSize(9).fillColor('#555').text('El paciente está al día con su esquema de vacunación.', 40, y);
+    doc.fontSize(9).fillColor('#555').text(advertencia || 'No hay dosis pendientes en el calendario configurado.', 40, y);
   } else {
     dibujarTablaSimple(doc, {
       headers: ['Vacuna', 'Dosis', 'Fecha límite', 'Estado'],
