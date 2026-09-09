@@ -20,9 +20,6 @@ async function obtener(req, res, next) {
 async function crear(req, res, next) {
   try {
     const tutor = await tutorService.crear(req.body);
-    if (req.body.pacienteId) {
-      await tutorService.vincularPaciente(tutor.id, req.body.pacienteId, true);
-    }
     res.locals.auditoriaExtra = { entidadId: tutor.id, datosNuevos: req.body };
     return created(res, tutor, 'Tutor registrado correctamente');
   } catch (error) { return next(error); }
@@ -51,6 +48,7 @@ async function eliminar(req, res, next) {
 async function vincular(req, res, next) {
   try {
     await tutorService.vincularPaciente(req.params.id, req.params.pacienteId, req.body.esPrincipal);
+    res.locals.auditoriaExtra = { datosNuevos: { tutorId: req.params.id, pacienteId: req.params.pacienteId, esPrincipal: Boolean(req.body.esPrincipal) } };
     return ok(res, null, 'Paciente vinculado al tutor correctamente');
   } catch (error) { return next(error); }
 }
@@ -58,6 +56,7 @@ async function vincular(req, res, next) {
 async function desvincular(req, res, next) {
   try {
     await tutorService.desvincularPaciente(req.params.id, req.params.pacienteId);
+    res.locals.auditoriaExtra = { datosNuevos: { tutorId: req.params.id, pacienteId: req.params.pacienteId, estado: 'inactivo' } };
     return ok(res, null, 'Paciente desvinculado del tutor correctamente');
   } catch (error) { return next(error); }
 }

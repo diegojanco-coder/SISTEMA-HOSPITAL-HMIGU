@@ -1,3 +1,5 @@
+import LotesAdmin from './LotesAdmin';
+import CalendarioAdmin from './CalendarioAdmin';
 import { useCallback, useEffect, useState } from 'react';
 import { Plus, Settings, Syringe, X } from 'lucide-react';
 import { listarUsuarios, crearUsuario, actualizarUsuario, eliminarUsuario, type DatosUsuario } from '../../../services/usuarios.service';
@@ -7,12 +9,13 @@ import { ejecutarBackup, listarBackups, type BackupInfo } from '../../../service
 import type { RegistroAuditoria, Usuario, Vacuna } from '../../../lib/types';
 import { errorLongitud, LIMITES_TEXTO, normalizarEspacios, validateForm } from '../../../lib/validaciones';
 
-const inputClass = 'w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 outline-none';
-const labelClass = 'block text-sm font-semibold text-gray-700 mb-2';
+const inputClass = 'w-full px-4 py-3 rounded-lg border border-border focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 outline-none';
+const labelClass = 'block text-sm font-semibold text-foreground mb-2';
 const fontBody = { fontFamily: 'Plus Jakarta Sans, sans-serif' };
 const fontHeading = { fontFamily: 'Outfit, sans-serif' };
 
 export default function Configuracion() {
+  const [error,setError]=useState('');
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [vacunas, setVacunas] = useState<Vacuna[]>([]);
   const [backups, setBackups] = useState<BackupInfo[]>([]);
@@ -31,12 +34,11 @@ export default function Configuracion() {
     setVacunas(v);
   }, []);
 
-  useEffect(() => { cargar(); }, [cargar]);
+  useEffect(() => { cargar().catch(()=>setError('No se pudo cargar la configuración.')); }, [cargar]);
 
   async function onEliminarUsuario(u: Usuario) {
     if (!window.confirm(`¿Desactivar a ${u.nombre_completo}?`)) return;
-    await eliminarUsuario(u.id);
-    cargar();
+    try {await eliminarUsuario(u.id);await cargar();}catch(e:any){setError(e.response?.data?.message||'No se pudo desactivar el usuario');}
   }
 
   async function onGenerarBackup() {
@@ -45,38 +47,37 @@ export default function Configuracion() {
       const r = await ejecutarBackup();
       setUltimoBackup(r.fecha);
       setBackups(await listarBackups());
-    } finally { setGenerandoBackup(false); }
+    } catch(e:any){setError(e.response?.data?.message||'No se pudo generar el respaldo');} finally { setGenerandoBackup(false); }
   }
 
   async function onVerAuditoria() {
-    const data = await listarAuditoria({ page: 1, limit: 25 });
-    setAuditoria(data.rows);
-    setShowAuditoria(true);
+    try {const data = await listarAuditoria({ page: 1, limit: 25 });setAuditoria(data.rows);setShowAuditoria(true);}catch{setError('No se pudo cargar la auditoría');}
   }
 
   return (
     <div className="space-y-6">
+      {error&&<p role="alert" className="text-red-600">{error} <button className="underline" onClick={()=>{setError('');cargar().catch(()=>setError('No se pudo cargar la configuración.'));}}>Reintentar</button></p>}
       <div>
-        <h3 className="text-2xl font-bold text-gray-900" style={fontHeading}>Configuración del Sistema</h3>
-        <p className="text-gray-600" style={fontBody}>Panel de administración - Solo administradores</p>
+        <h3 className="text-2xl font-bold text-foreground" style={fontHeading}>Configuración del Sistema</h3>
+        <p className="text-muted-foreground" style={fontBody}>Panel de administración - Solo administradores</p>
       </div>
 
       {/* Gestión de usuarios */}
-      <div className="bg-white rounded-xl p-6 border border-gray-200">
+      <div className="bg-card rounded-xl p-6 border border-border">
         <div className="flex items-center justify-between mb-6">
-          <h4 className="text-lg font-bold text-gray-900" style={fontHeading}>Gestión de Usuarios</h4>
-          <button onClick={() => { setEditandoUsuario(null); setShowUsuarioModal(true); }} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-cyan-500 to-purple-600 text-white font-semibold hover:scale-105 transition-transform">
+          <h4 className="text-lg font-bold text-foreground" style={fontHeading}>Gestión de Usuarios</h4>
+          <button onClick={() => { setEditandoUsuario(null); setShowUsuarioModal(true); }} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-white font-semibold hover:opacity-90 transition-transform">
             <Plus className="w-4 h-4" /> Nuevo Usuario
           </button>
         </div>
         <div className="space-y-3">
           {usuarios.map((u) => (
-            <div key={u.id} className="flex items-center justify-between p-4 rounded-lg border border-gray-200 hover:border-cyan-300 hover:bg-cyan-50/30 transition-all">
+            <div key={u.id} className="flex items-center justify-between p-4 rounded-lg border border-border hover:border-cyan-300 hover:bg-cyan-50/30 transition-all">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-cyan-400 to-purple-500 flex items-center justify-center text-white font-bold">{u.nombre_completo.charAt(0)}</div>
+                <div className="w-12 h-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-white font-bold">{u.nombre_completo.charAt(0)}</div>
                 <div>
-                  <p className="font-bold text-gray-900" style={fontBody}>{u.nombre_completo}</p>
-                  <p className="text-sm text-gray-600" style={fontBody}>{u.email}</p>
+                  <p className="font-bold text-foreground" style={fontBody}>{u.nombre_completo}</p>
+                  <p className="text-sm text-muted-foreground" style={fontBody}>{u.email}</p>
                 </div>
               </div>
               <div className="flex items-center gap-4">
@@ -84,10 +85,10 @@ export default function Configuracion() {
                   <span className={`px-3 py-1 rounded-full text-xs font-semibold ${u.rol === 'administrador' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
                     {u.rol === 'administrador' ? 'Administrador' : 'Enfermería'}
                   </span>
-                  <p className="text-xs text-gray-500 mt-1" style={fontBody}>{u.estado === 'activo' ? 'Activo' : 'Inactivo'}</p>
+                  <p className="text-xs text-muted-foreground mt-1" style={fontBody}>{u.estado === 'activo' ? 'Activo' : 'Inactivo'}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button onClick={() => { setEditandoUsuario(u); setShowUsuarioModal(true); }} className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200 transition-colors">Editar</button>
+                  <button onClick={() => { setEditandoUsuario(u); setShowUsuarioModal(true); }} className="px-4 py-2 rounded-lg bg-muted text-foreground text-sm font-medium hover:bg-gray-200 transition-colors">Editar</button>
                   {u.estado === 'activo' && (
                     <button onClick={() => onEliminarUsuario(u)} className="px-4 py-2 rounded-lg bg-red-100 text-red-700 text-sm font-medium hover:bg-red-200 transition-colors">Desactivar</button>
                   )}
@@ -99,46 +100,49 @@ export default function Configuracion() {
       </div>
 
       {/* Catálogo de vacunas PAI */}
-      <div className="bg-white rounded-xl p-6 border border-gray-200">
+      <div className="bg-card rounded-xl p-6 border border-border">
         <div className="flex items-center justify-between mb-6">
-          <h4 className="text-lg font-bold text-gray-900" style={fontHeading}>Calendario de Vacunas PAI</h4>
-          <button onClick={() => setShowVacunaModal(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-green-500 to-teal-600 text-white font-semibold hover:scale-105 transition-transform">
+          <h4 className="text-lg font-bold text-foreground" style={fontHeading}>Calendario de Vacunas PAI</h4>
+          <button onClick={() => setShowVacunaModal(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-white font-semibold hover:opacity-90 transition-transform">
             <Plus className="w-4 h-4" /> Agregar Vacuna
           </button>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {vacunas.map((v) => (
-            <div key={v.id} className="flex items-center justify-between p-4 rounded-lg border border-gray-200 hover:border-green-300 hover:bg-green-50/30 transition-all">
+            <div key={v.id} className="flex items-center justify-between p-4 rounded-lg border border-border hover:border-green-300 hover:bg-green-50/30 transition-all">
               <div className="flex items-center gap-3">
                 <Syringe className="w-5 h-5 text-green-600" />
                 <div>
-                  <p className="font-bold text-gray-900" style={fontBody}>{v.nombre}</p>
-                  <p className="text-sm text-gray-600" style={fontBody}>{v.dosis.length} dosis configuradas</p>
+                  <p className="font-bold text-foreground" style={fontBody}>{v.nombre}</p>
+                  <p className="text-sm text-muted-foreground" style={fontBody}>{v.dosis.length} dosis configuradas</p>
                 </div>
               </div>
-              <button onClick={() => setShowDosisModal(v)} className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200 transition-colors">+ Dosis</button>
+              <button onClick={() => setShowDosisModal(v)} className="px-4 py-2 rounded-lg bg-muted text-foreground text-sm font-medium hover:bg-gray-200 transition-colors">+ Dosis</button>
             </div>
           ))}
         </div>
       </div>
 
+      <CalendarioAdmin vacunas={vacunas} onGuardado={cargar} />
+      <LotesAdmin vacunas={vacunas} />
+
       {/* Respaldo y auditoría */}
-      <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-6 border-2 border-purple-200">
+      <div className="bg-primary text-primary-foreground rounded-xl p-6 border-2 border-purple-200">
         <div className="flex items-start gap-4">
           <div className="w-12 h-12 bg-purple-600 rounded-lg flex items-center justify-center flex-shrink-0"><Settings className="w-6 h-6 text-white" /></div>
           <div className="flex-1">
-            <h4 className="text-lg font-bold text-gray-900 mb-2" style={fontHeading}>Respaldo y Auditoría</h4>
-            <p className="text-gray-700 mb-4" style={fontBody}>
+            <h4 className="text-lg font-bold text-foreground mb-2" style={fontHeading}>Respaldo y Auditoría</h4>
+            <p className="text-foreground mb-4" style={fontBody}>
               {ultimoBackup ? `Último respaldo generado: ${new Date(ultimoBackup).toLocaleString('es-BO')}` : 'Respaldo automático programado diariamente. También puedes generarlo manualmente.'}
             </p>
             <div className="flex items-center gap-3 flex-wrap">
               <button onClick={onGenerarBackup} disabled={generandoBackup} className="px-6 py-3 rounded-lg bg-purple-600 text-white font-semibold hover:bg-purple-700 transition-colors disabled:opacity-60">
                 {generandoBackup ? 'Generando...' : 'Realizar Respaldo Ahora'}
               </button>
-              <button onClick={onVerAuditoria} className="px-6 py-3 rounded-lg bg-white border-2 border-purple-600 text-purple-600 font-semibold hover:bg-purple-50 transition-colors">Ver Logs del Sistema</button>
+              <button onClick={onVerAuditoria} className="px-6 py-3 rounded-lg bg-card border-2 border-purple-600 text-purple-600 font-semibold hover:bg-purple-50 transition-colors">Ver Logs del Sistema</button>
             </div>
             {backups.length > 0 && (
-              <ul className="mt-4 text-sm text-gray-600 space-y-1" style={fontBody}>
+              <ul className="mt-4 text-sm text-muted-foreground space-y-1" style={fontBody}>
                 {backups.slice(0, 5).map((b) => (
                   <li key={b.archivo}>{b.archivo} — {(b.tamanioBytes / 1024).toFixed(1)} KB</li>
                 ))}
@@ -193,10 +197,10 @@ function UsuarioModal({ usuario, onClose, onSaved }: { usuario: Usuario | null; 
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-2xl">
-          <h3 className="text-xl font-bold text-gray-900" style={fontHeading}>{usuario ? 'Editar Usuario' : 'Nuevo Usuario'}</h3>
-          <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100"><X className="w-5 h-5 text-gray-600" /></button>
+      <div className="bg-card rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+        <div className="sticky top-0 bg-card border-b border-border px-6 py-4 flex items-center justify-between rounded-t-2xl">
+          <h3 className="text-xl font-bold text-foreground" style={fontHeading}>{usuario ? 'Editar Usuario' : 'Nuevo Usuario'}</h3>
+          <button onClick={onClose} className="p-2 rounded-lg hover:bg-muted"><X className="w-5 h-5 text-muted-foreground" /></button>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {errorMsg && <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">{errorMsg}</div>}
@@ -224,9 +228,9 @@ function UsuarioModal({ usuario, onClose, onSaved }: { usuario: Usuario | null; 
               <input required type="password" minLength={6} maxLength={LIMITES_TEXTO.password} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className={`${inputClass} ${errorLongitud(form.password, LIMITES_TEXTO.password, 'password') ? 'border-red-500 ring-2 ring-red-500/20' : ''}`} style={fontBody} />
               {errorLongitud(form.password, LIMITES_TEXTO.password, 'password') && <p className="text-xs text-red-600">{errorLongitud(form.password, LIMITES_TEXTO.password, 'password')}</p>}</div>
           )}
-          <div className="flex items-center justify-end gap-3 border-t border-gray-200 pt-4">
-            <button type="button" onClick={onClose} className="px-5 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50">Cancelar</button>
-            <button type="submit" disabled={guardando} className="px-5 py-2.5 rounded-lg bg-gradient-to-r from-cyan-500 to-purple-600 text-white font-semibold disabled:opacity-60">{guardando ? 'Guardando...' : 'Guardar'}</button>
+          <div className="flex items-center justify-end gap-3 border-t border-border pt-4">
+            <button type="button" onClick={onClose} className="px-5 py-2.5 rounded-lg border border-border text-foreground font-semibold hover:bg-muted">Cancelar</button>
+            <button type="submit" disabled={guardando} className="px-5 py-2.5 rounded-lg bg-primary text-primary-foreground text-white font-semibold disabled:opacity-60">{guardando ? 'Guardando...' : 'Guardar'}</button>
           </div>
         </form>
       </div>
@@ -250,10 +254,10 @@ function VacunaModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl max-w-lg w-full">
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-2xl">
-          <h3 className="text-xl font-bold text-gray-900" style={fontHeading}>Nueva Vacuna</h3>
-          <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100"><X className="w-5 h-5 text-gray-600" /></button>
+      <div className="bg-card rounded-2xl max-w-lg w-full">
+        <div className="sticky top-0 bg-card border-b border-border px-6 py-4 flex items-center justify-between rounded-t-2xl">
+          <h3 className="text-xl font-bold text-foreground" style={fontHeading}>Nueva Vacuna</h3>
+          <button onClick={onClose} className="p-2 rounded-lg hover:bg-muted"><X className="w-5 h-5 text-muted-foreground" /></button>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {errorMsg && <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">{errorMsg}</div>}
@@ -266,9 +270,9 @@ function VacunaModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
           <div><label className={labelClass} style={fontBody}>Enfermedad que previene</label>
             <input maxLength={LIMITES_TEXTO.fabricante} value={form.enfermedadPrevine} onChange={(e) => setForm({ ...form, enfermedadPrevine: normalizarEspacios(e.target.value) })} className={`${inputClass} ${errorLongitud(form.enfermedadPrevine, LIMITES_TEXTO.fabricante, 'enfermedad') ? 'border-red-500 ring-2 ring-red-500/20' : ''}`} style={fontBody} />
             {errorLongitud(form.enfermedadPrevine, LIMITES_TEXTO.fabricante, 'enfermedad') && <p className="text-xs text-red-600">{errorLongitud(form.enfermedadPrevine, LIMITES_TEXTO.fabricante, 'enfermedad')}</p>}</div>
-          <div className="flex items-center justify-end gap-3 border-t border-gray-200 pt-4">
-            <button type="button" onClick={onClose} className="px-5 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50">Cancelar</button>
-            <button type="submit" disabled={guardando} className="px-5 py-2.5 rounded-lg bg-gradient-to-r from-green-500 to-teal-600 text-white font-semibold disabled:opacity-60">{guardando ? 'Guardando...' : 'Guardar'}</button>
+          <div className="flex items-center justify-end gap-3 border-t border-border pt-4">
+            <button type="button" onClick={onClose} className="px-5 py-2.5 rounded-lg border border-border text-foreground font-semibold hover:bg-muted">Cancelar</button>
+            <button type="submit" disabled={guardando} className="px-5 py-2.5 rounded-lg bg-primary text-primary-foreground text-white font-semibold disabled:opacity-60">{guardando ? 'Guardando...' : 'Guardar'}</button>
           </div>
         </form>
       </div>
@@ -299,10 +303,10 @@ function DosisModal({ vacuna, onClose, onSaved }: { vacuna: Vacuna; onClose: () 
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl max-w-lg w-full">
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-2xl">
-          <h3 className="text-xl font-bold text-gray-900" style={fontHeading}>Nueva Dosis - {vacuna.nombre}</h3>
-          <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100"><X className="w-5 h-5 text-gray-600" /></button>
+      <div className="bg-card rounded-2xl max-w-lg w-full">
+        <div className="sticky top-0 bg-card border-b border-border px-6 py-4 flex items-center justify-between rounded-t-2xl">
+          <h3 className="text-xl font-bold text-foreground" style={fontHeading}>Nueva Dosis - {vacuna.nombre}</h3>
+          <button onClick={onClose} className="p-2 rounded-lg hover:bg-muted"><X className="w-5 h-5 text-muted-foreground" /></button>
         </div>
         <form onSubmit={handleSubmit} className="p-6 grid grid-cols-2 gap-4">
           <div><label className={labelClass} style={fontBody}>N° de dosis</label>
@@ -316,9 +320,9 @@ function DosisModal({ vacuna, onClose, onSaved }: { vacuna: Vacuna; onClose: () 
           <div><label className={labelClass} style={fontBody}>Tolerancia (días)</label>
             <input type="number" min="0" value={Number.isNaN(form.toleranciaDias) ? '' : form.toleranciaDias} onChange={(e) => cambiarNumero('toleranciaDias', e.target.value)} className={`${inputClass} ${errores.toleranciaDias ? 'border-red-500 ring-2 ring-red-500/20' : ''}`} style={fontBody} />
             {errores.toleranciaDias && <p className="text-xs text-red-600 mt-1">{errores.toleranciaDias}</p>}</div>
-          <div className="col-span-2 flex items-center justify-end gap-3 border-t border-gray-200 pt-4">
-            <button type="button" onClick={onClose} className="px-5 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50">Cancelar</button>
-            <button type="submit" disabled={guardando} className="px-5 py-2.5 rounded-lg bg-gradient-to-r from-green-500 to-teal-600 text-white font-semibold disabled:opacity-60">{guardando ? 'Guardando...' : 'Guardar'}</button>
+          <div className="col-span-2 flex items-center justify-end gap-3 border-t border-border pt-4">
+            <button type="button" onClick={onClose} className="px-5 py-2.5 rounded-lg border border-border text-foreground font-semibold hover:bg-muted">Cancelar</button>
+            <button type="submit" disabled={guardando} className="px-5 py-2.5 rounded-lg bg-primary text-primary-foreground text-white font-semibold disabled:opacity-60">{guardando ? 'Guardando...' : 'Guardar'}</button>
           </div>
         </form>
       </div>
@@ -329,30 +333,30 @@ function DosisModal({ vacuna, onClose, onSaved }: { vacuna: Vacuna; onClose: () 
 function AuditoriaModal({ registros, onClose }: { registros: RegistroAuditoria[]; onClose: () => void }) {
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[85vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-2xl">
-          <h3 className="text-xl font-bold text-gray-900" style={fontHeading}>Bitácora de Auditoría</h3>
-          <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100"><X className="w-5 h-5 text-gray-600" /></button>
+      <div className="bg-card rounded-2xl max-w-4xl w-full max-h-[85vh] overflow-y-auto">
+        <div className="sticky top-0 bg-card border-b border-border px-6 py-4 flex items-center justify-between rounded-t-2xl">
+          <h3 className="text-xl font-bold text-foreground" style={fontHeading}>Bitácora de Auditoría</h3>
+          <button onClick={onClose} className="p-2 rounded-lg hover:bg-muted"><X className="w-5 h-5 text-muted-foreground" /></button>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200">
+            <thead className="bg-muted border-b border-border">
               <tr>
                 {['Fecha/Hora', 'Usuario', 'Acción', 'Entidad', 'ID', 'IP'].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase" style={fontBody}>{h}</th>
+                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase" style={fontBody}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {registros.length === 0 && <tr><td colSpan={6} className="text-center text-gray-400 py-8">Sin registros de auditoría.</td></tr>}
+              {registros.length === 0 && <tr><td colSpan={6} className="text-center text-muted-foreground py-8">Sin registros de auditoría.</td></tr>}
               {registros.map((r) => (
-                <tr key={r.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-gray-700" style={fontBody}>{r.created_at}</td>
-                  <td className="px-4 py-3 text-gray-700" style={fontBody}>{r.usuario_nombre || 'Sistema'}</td>
-                  <td className="px-4 py-3 text-gray-700" style={fontBody}>{r.accion}</td>
-                  <td className="px-4 py-3 text-gray-700" style={fontBody}>{r.entidad}</td>
-                  <td className="px-4 py-3 text-gray-700" style={fontBody}>{r.entidad_id ?? '-'}</td>
-                  <td className="px-4 py-3 text-gray-700" style={fontBody}>{r.ip || '-'}</td>
+                <tr key={r.id} className="hover:bg-muted">
+                  <td className="px-4 py-3 text-foreground" style={fontBody}>{r.created_at}</td>
+                  <td className="px-4 py-3 text-foreground" style={fontBody}>{r.usuario_nombre || 'Sistema'}</td>
+                  <td className="px-4 py-3 text-foreground" style={fontBody}>{r.accion}</td>
+                  <td className="px-4 py-3 text-foreground" style={fontBody}>{r.entidad}</td>
+                  <td className="px-4 py-3 text-foreground" style={fontBody}>{r.entidad_id ?? '-'}</td>
+                  <td className="px-4 py-3 text-foreground" style={fontBody}>{r.ip || '-'}</td>
                 </tr>
               ))}
             </tbody>

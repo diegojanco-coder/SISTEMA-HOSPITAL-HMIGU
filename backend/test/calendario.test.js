@@ -1,0 +1,90 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const { fechaCivil, sumarEdad, isoCivil } = require('../src/utils/calendario.util');
+const { evaluarEsquema } = require('../src/services/motorVacunacion.service');
+test('Mes calendario y año bisiesto conservan el último día válido', () => {
+ assert.equal(isoCivil(sumarEdad(fechaCivil('2024-01-31'),1,'meses')),'2024-02-29');
+ assert.equal(isoCivil(sumarEdad(fechaCivil('2024-02-29'),1,'anios')),'2025-02-28');
+ assert.equal(isoCivil(sumarEdad(fechaCivil('2024-01-31'),6,'semanas')),'2024-03-13');
+});
+test('Rechaza fechas y unidades inválidas', () => {
+ assert.throws(()=>fechaCivil('2025-02-30'));
+ assert.throws(()=>sumarEdad(fechaCivil('2025-01-01'),1,'otro'));
+});
+const dosis = {id:1,numero_dosis:1,edad_recomendada_dias:60,edad_recomendada_valor:2,edad_recomendada_unidad:'meses',tolerancia_dias:30};
+test('Pentavalente cumple dos meses reales, no sesenta días', () => {
+ const paciente={fecha_nacimiento:'2025-07-01'};
+ const resultado=evaluarEsquema(paciente,[dosis],[],new Date(2025,7,30));
+ assert.equal(resultado.detalle[0].fechaRecomendada,'2025-09-01');
+ assert.equal(resultado.detalle[0].estado,'proxima');
+ assert.equal(evaluarEsquema(paciente,[dosis],[],new Date(2025,8,1)).detalle[0].estado,'pendiente');
+});
+test('Mantiene historial aplicado y compatibilidad de dosis antiguas', () => {
+ const paciente={fecha_nacimiento:'2025-07-01'};
+ assert.equal(evaluarEsquema(paciente,[dosis],[{dosis_id:1,fecha_aplicacion:'2025-09-01'}],new Date(2026,0,1)).detalle[0].estado,'aplicada');
+ const antigua={...dosis,edad_recomendada_valor:null,edad_recomendada_unidad:null};
+ assert.equal(evaluarEsquema(paciente,[antigua],[],new Date(2025,8,1)).detalle[0].fechaRecomendada,'2025-08-30');
+});
+
+const { evaluarAlcance } = require('../src/utils/elegibilidad.util');
+const fuente='https://example.invalid/fixture';
+test('Adulto sin regla no genera atraso ni indicador al día; conserva aplicación',()=>{
+ const p={fecha_nacimiento:'1990-01-01'};
+ const r=evaluarEsquema(p,[dosis],[],new Date(2026,8,8));
+ assert.equal(r.detalle[0].estado,'revision');assert.equal(r.resumen.atrasadas,0);assert.equal(r.estadoGeneral,'revision');assert.ok(r.advertencia);
+ assert.equal(evaluarEsquema(p,[dosis],[{dosis_id:1}],new Date(2026,8,8)).detalle[0].estado,'aplicada');
+});
+test('Pentavalente sale del alcance el quinto cumpleaños exacto',()=>{
+ const d={...dosis,regla_calendario:{tipo:'regular',minMeses:0,maxMesesExclusivo:60,fuente}};
+ const p={fecha_nacimiento:'2021-09-08'};
+ assert.equal(evaluarAlcance(p,d,new Date(2026,8,7)),null);
+ assert.equal(evaluarAlcance(p,d,new Date(2026,8,8)),'fuera_alcance');
+});
+test('Regla adulta explícita admite adultos e independientes o dependientes',()=>{
+ const d={regla_calendario:{tipo:'regular',minMeses:216,fuente}};
+ for(const es_dependiente of [0,1]) assert.equal(evaluarAlcance({fecha_nacimiento:'1990-01-01',es_dependiente},d,new Date(2026,8,8)),null);
+ assert.equal(evaluarAlcance({fecha_nacimiento:'2020-01-01'},d,new Date(2026,8,8)),'fuera_alcance');
+});
+test('Campaña exige fechas y territorio y termina después de su último día',()=>{
+ const p={fecha_nacimiento:'2025-01-01',departamento:'Cochabamba'};
+ const regla={tipo:'campana',minMeses:0,maxMesesExclusivo:72,inicio:'2026-02-01',fin:'2026-04-30',territorio:'Cochabamba',fuente};
+ const d={regla_calendario:regla};
+ assert.equal(evaluarAlcance(p,d,new Date(2026,0,31)),'fuera_alcance');
+ assert.equal(evaluarAlcance(p,d,new Date(2026,1,1)),null);
+ assert.equal(evaluarAlcance(p,d,new Date(2026,3,30)),null);
+ assert.equal(evaluarAlcance(p,d,new Date(2026,4,1)),'fuera_alcance');
+ assert.equal(evaluarAlcance({...p,departamento:'La Paz'},d,new Date(2026,2,1)),'fuera_alcance');
+ assert.equal(evaluarAlcance({...p,departamento:null},d,new Date(2026,2,1)),'revision');
+ assert.equal(evaluarAlcance(p,{regla_calendario:{...regla,fin:null}},new Date(2026,2,1)),'revision');
+});
+test('Regla inválida y catálogo vacío no significan esquema completo',()=>{
+ assert.equal(evaluarAlcance({fecha_nacimiento:'2025-01-01'},{regla_calendario:'{'},new Date(2026,1,1)),'revision');
+ assert.equal(evaluarEsquema({fecha_nacimiento:'2025-01-01'},[],[],new Date(2026,1,1)).estadoGeneral,'revision');
+});
+
+test('Seguimiento adulto cuenta un mes desde la aplicación, no desde el nacimiento',()=>{
+ const d={...dosis,id:2,regla_calendario:{tipo:'regular',minMeses:216,fuente,programacion:{base:'dosis_previa',dosisId:1,valor:1,unidad:'meses'}}};
+ const p={fecha_nacimiento:'1990-01-01'};
+ const r=evaluarEsquema(p,[d],[{dosis_id:1,fecha_aplicacion:'2026-01-31'}],new Date(2026,1,20));
+ assert.equal(r.detalle[0].fechaRecomendada,'2026-02-28');assert.equal(r.detalle[0].estado,'proxima');
+ const sin=evaluarEsquema(p,[d],[],new Date(2026,1,20));
+ assert.equal(sin.detalle[0].estado,'revision');assert.equal(sin.detalle[0].fechaRecomendada,null);assert.equal(sin.estadoGeneral,'revision');
+});
+test('Primera dosis al contacto no se considera atrasada desde la infancia',()=>{
+ const d={...dosis,regla_calendario:{tipo:'regular',minMeses:216,fuente,programacion:{base:'contacto'}}};
+ const p={fecha_nacimiento:'1990-01-01'};
+ const r=evaluarEsquema(p,[d],[],new Date(2026,1,20));
+ assert.equal(r.detalle[0].estado,'revision');assert.equal(r.detalle[0].fechaLimite,null);
+ assert.equal(evaluarEsquema(p,[d],[{dosis_id:1,fecha_aplicacion:'2026-01-01'}],new Date(2026,1,20)).detalle[0].estado,'aplicada');
+});
+test('Antecedente ambiguo o inválido requiere revisión',()=>{
+ const d={...dosis,id:2,regla_calendario:{tipo:'regular',minMeses:216,fuente,programacion:{base:'dosis_previa',dosisId:1,valor:1,unidad:'meses'}}};
+ for(const historial of [[{dosis_id:1,fecha_aplicacion:'2026-02-30'}],[{dosis_id:1,fecha_aplicacion:'2026-01-01'},{dosis_id:1,fecha_aplicacion:'2026-01-02'}]]) {
+ assert.equal(evaluarEsquema({fecha_nacimiento:'1990-01-01'},[d],historial,new Date(2026,1,20)).detalle[0].estado,'revision');
+ }
+});
+test('edad exacta no produce días negativos al cruzar febrero',()=>{
+ const {calcularEdadExacta}=require('../src/utils/edad.util');
+ assert.deepEqual(calcularEdadExacta('2025-01-31',new Date(2025,2,1)),{anios:0,meses:1,dias:1,edadEnDias:29});
+ assert.deepEqual(calcularEdadExacta('2024-02-29',new Date(2025,1,28)),{anios:1,meses:0,dias:0,edadEnDias:365});
+});

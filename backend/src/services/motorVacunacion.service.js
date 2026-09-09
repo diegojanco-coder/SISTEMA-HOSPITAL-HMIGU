@@ -1,3 +1,5 @@
+const { programarDosis } = require('../utils/programacion.util');
+const { evaluarAlcance } = require('../utils/elegibilidad.util');
 const { calcularEdadExacta } = require('../utils/edad.util');
 
 /**
@@ -20,6 +22,7 @@ const { calcularEdadExacta } = require('../utils/edad.util');
  */
 
 const VENTANA_PROXIMA_DIAS = 30;
+const { fechaCivil, sumarEdad, isoCivil, diferenciaDias } = require('../utils/calendario.util');
 
 function evaluarDosis(edadEnDias, dosis, aplicada) {
   if (aplicada) {
@@ -53,24 +56,36 @@ function evaluarEsquema(paciente, catalogoDosis, historial, fechaReferencia = ne
 
   const detalle = catalogoDosis.map((dosis) => {
     const registroAplicado = aplicadasPorDosisId.get(dosis.id);
-    const { estado } = evaluarDosis(edad.edadEnDias, dosis, Boolean(registroAplicado));
 
-    const fechaNacimiento = new Date(paciente.fecha_nacimiento);
-    const fechaRecomendada = new Date(fechaNacimiento);
-    fechaRecomendada.setDate(fechaRecomendada.getDate() + dosis.edad_recomendada_dias);
-    const fechaLimite = new Date(fechaNacimiento);
-    fechaLimite.setDate(fechaLimite.getDate() + dosis.edad_recomendada_dias + dosis.tolerancia_dias);
+
+    const fechaNacimiento = fechaCivil(paciente.fecha_nacimiento);
+    const programacion = programarDosis(paciente, dosis, historial);
+    const fechaRecomendada = programacion.fecha || null;
+    const fechaLimite = fechaRecomendada ? sumarEdad(fechaRecomendada, dosis.tolerancia_dias, 'dias') : null;
+    let estado = registroAplicado ? 'aplicada' : 'revision';
+    if (fechaRecomendada && !registroAplicado) {
+      estado = evaluarDosis(diferenciaDias(fechaNacimiento, fechaCivil(fechaReferencia)), {
+        edad_recomendada_dias: diferenciaDias(fechaNacimiento, fechaRecomendada),
+        tolerancia_dias: Number(dosis.tolerancia_dias)
+      }, false).estado;
+    }
+    let regla=null;
+    try {regla=typeof dosis.regla_calendario==='string'?JSON.parse(dosis.regla_calendario):dosis.regla_calendario;} catch {}
+    const alcance = evaluarAlcance(paciente, dosis, fechaReferencia);
+    if (!registroAplicado) estado = alcance || estado;
 
     return {
       dosisId: dosis.id,
+      registrable: !registroAplicado && alcance === null && regla?.programacion?.base === 'contacto',
+      dentroAlcance: alcance === null && !programacion.revision,
       vacunaId: dosis.vacuna_id,
       vacunaNombre: dosis.vacuna_nombre,
       vacunaNombreCorto: dosis.vacuna_nombre_corto,
       numeroDosis: dosis.numero_dosis,
       nombreDosis: dosis.nombre_dosis,
       estado,
-      fechaRecomendada: fechaRecomendada.toISOString().slice(0, 10),
-      fechaLimite: fechaLimite.toISOString().slice(0, 10),
+      fechaRecomendada: fechaRecomendada ? isoCivil(fechaRecomendada) : null,
+      fechaLimite: fechaLimite ? isoCivil(fechaLimite) : null,
       fechaAplicacion: registroAplicado ? registroAplicado.fecha_aplicacion : null,
       lote: registroAplicado ? registroAplicado.lote : null
     };
@@ -84,9 +99,11 @@ function evaluarEsquema(paciente, catalogoDosis, historial, fechaReferencia = ne
     futuras: detalle.filter((d) => d.estado === 'futura').length
   };
 
-  const estadoGeneral = resumen.atrasadas > 0 ? 'rojo' : (resumen.proximas + resumen.pendientes) > 0 ? 'amarillo' : 'verde';
+  const requiereRevision = detalle.some(d => !d.dentroAlcance) || detalle.length === 0;
+  const advertencia = requiereRevision ? 'Evaluación parcial: las dosis fuera del alcance o sin reglas verificadas requieren revisión del personal de salud. La ausencia de alertas no confirma un esquema completo.' : null;
+  const estadoGeneral = resumen.atrasadas > 0 ? 'rojo' : (resumen.proximas + resumen.pendientes) > 0 ? 'amarillo' : requiereRevision ? 'revision' : 'verde';
 
-  return { edad, detalle, resumen, estadoGeneral };
+  return { edad, detalle, resumen, estadoGeneral, advertencia };
 }
 
 module.exports = { evaluarEsquema, evaluarDosis, VENTANA_PROXIMA_DIAS };

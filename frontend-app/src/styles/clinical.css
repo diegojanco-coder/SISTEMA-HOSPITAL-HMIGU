@@ -1,0 +1,28 @@
+
+:root { --background:#f4f6f8; --foreground:#202b3b; --card:#fff; --card-foreground:#202b3b; --primary:#31577b; --primary-foreground:#fff; --secondary:#e8edf3; --secondary-foreground:#283c50; --muted:#edf1f5; --muted-foreground:#617084; --accent:#e8edf3; --accent-foreground:#283c50; --border:#dce3ea; --input-background:#fff; --ring:#597d9e; }
+.dark { --background:#111821; --foreground:#e2e9f1; --card:#19232f; --card-foreground:#e2e9f1; --primary:#496f94; --primary-foreground:#fff; --secondary:#243242; --secondary-foreground:#d8e3ee; --muted:#202d3b; --muted-foreground:#a7b5c5; --accent:#243242; --accent-foreground:#d8e3ee; --border:#334252; --input-background:#19232f; --ring:#86aacc; color-scheme:dark; }
+body { font-family:'Plus Jakarta Sans',system-ui,sans-serif; background:var(--background); color:var(--foreground); }
+button,input,select,textarea { font:inherit; }
+button { cursor:pointer; }
+button:disabled { cursor:wait; }
+:focus-visible { outline:3px solid var(--ring); outline-offset:3px; }
+.theme-switch { position:fixed; right:20px; bottom:18px; z-index:60; display:flex; align-items:center; gap:8px; padding:10px 14px; border:1px solid var(--border); background:var(--card); color:var(--foreground); border-radius:12px; font-size:12px; box-shadow:0 4px 18px #00000012; }
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;}}
+
+/* Fondos y estados informativos legibles también en modo oscuro. */
+.dark {
+  --color-blue-50:#202d3b; --color-blue-100:#283646; --color-blue-200:#3b4f63; --color-blue-300:#617e99;
+  --color-cyan-50:#202d3b; --color-cyan-100:#283646; --color-cyan-200:#3b4f63; --color-cyan-300:#617e99;
+  --color-teal-50:#202d3b; --color-teal-100:#283646; --color-teal-200:#3b4f63; --color-teal-300:#617e99;
+  --color-green-50:#202d3b; --color-green-100:#283646; --color-green-200:#3b4f63; --color-green-300:#617e99;
+  --color-lime-50:#202d3b; --color-lime-100:#283646; --color-lime-200:#3b4f63; --color-lime-300:#617e99;
+  --color-yellow-50:#202d3b; --color-yellow-100:#283646; --color-yellow-200:#3b4f63; --color-yellow-300:#617e99;
+  --color-orange-50:#202d3b; --color-orange-100:#283646; --color-orange-200:#3b4f63; --color-orange-300:#617e99;
+  --color-red-50:#202d3b; --color-red-100:#283646; --color-red-200:#3b4f63; --color-red-300:#617e99;
+  --color-pink-50:#202d3b; --color-pink-100:#283646; --color-pink-200:#3b4f63; --color-pink-300:#617e99;
+  --color-purple-50:#202d3b; --color-purple-100:#283646; --color-purple-200:#3b4f63; --color-purple-300:#617e99;
+  --color-indigo-50:#202d3b; --color-indigo-100:#283646; --color-indigo-200:#3b4f63; --color-indigo-300:#617e99;
+  --color-emerald-50:#202d3b; --color-emerald-100:#283646; --color-emerald-200:#3b4f63; --color-emerald-300:#617e99;
+  --color-amber-50:#202d3b; --color-amber-100:#283646; --color-amber-200:#3b4f63; --color-amber-300:#617e99;
+  --color-red-600:#f28e8e; --color-red-700:#ffbaba; --color-green-600:#78c7a4; --color-green-700:#a1debf; --color-yellow-600:#ddba70; --color-yellow-700:#e7ca90; --color-blue-600:#8ab5df; --color-purple-600:#b7abd9; --color-cyan-600:#80b9c9; --color-teal-600:#83c7c2;
+}

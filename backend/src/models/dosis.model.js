@@ -35,9 +35,13 @@ async function create(vacunaId, data) {
 
 async function update(id, data) {
   await pool.query(
-    `UPDATE dosis SET nombre_dosis = ?, edad_recomendada_dias = ?, tolerancia_dias = ?,
+    `UPDATE dosis SET
+       regla_calendario = IF(edad_recomendada_dias <=> ?, regla_calendario, NULL),
+       edad_recomendada_valor = IF(edad_recomendada_dias <=> ?, edad_recomendada_valor, NULL),
+       edad_recomendada_unidad = IF(edad_recomendada_dias <=> ?, edad_recomendada_unidad, NULL),
+       nombre_dosis = ?, edad_recomendada_dias = ?, tolerancia_dias = ?,
        intervalo_minimo_dias = ?, estado = ? WHERE id = ?`,
-    [data.nombreDosis, data.edadRecomendadaDias, data.toleranciaDias ?? 30,
+    [data.edadRecomendadaDias, data.edadRecomendadaDias, data.edadRecomendadaDias, data.nombreDosis, data.edadRecomendadaDias, data.toleranciaDias ?? 30,
      data.intervaloMinimoDias ?? 0, data.estado || 'activo', id]
   );
   return findById(id);

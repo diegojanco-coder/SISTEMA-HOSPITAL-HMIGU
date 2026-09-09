@@ -8,27 +8,13 @@
  * a partir de una fecha de nacimiento y una fecha de referencia (hoy por defecto).
  */
 function calcularEdadExacta(fechaNacimiento, fechaReferencia = new Date()) {
-  const nacimiento = new Date(fechaNacimiento);
-  const referencia = new Date(fechaReferencia);
-
-  let anios = referencia.getFullYear() - nacimiento.getFullYear();
-  let meses = referencia.getMonth() - nacimiento.getMonth();
-  let dias = referencia.getDate() - nacimiento.getDate();
-
-  if (dias < 0) {
-    meses -= 1;
-    const ultimoDiaMesAnterior = new Date(referencia.getFullYear(), referencia.getMonth(), 0).getDate();
-    dias += ultimoDiaMesAnterior;
-  }
-  if (meses < 0) {
-    anios -= 1;
-    meses += 12;
-  }
-
-  const msPorDia = 1000 * 60 * 60 * 24;
-  const edadEnDias = Math.floor((referencia.setHours(0, 0, 0, 0) - nacimiento.setHours(0, 0, 0, 0)) / msPorDia);
-
-  return { anios, meses, dias, edadEnDias: Math.max(edadEnDias, 0) };
+  const {fechaCivil,sumarEdad,diferenciaDias}=require('./calendario.util');
+  const nacimiento=fechaCivil(fechaNacimiento), referencia=fechaCivil(fechaReferencia);
+  if(referencia<nacimiento)return {anios:0,meses:0,dias:0,edadEnDias:0};
+  let totalMeses=(referencia.getUTCFullYear()-nacimiento.getUTCFullYear())*12+referencia.getUTCMonth()-nacimiento.getUTCMonth();
+  let aniversario=sumarEdad(nacimiento,totalMeses,'meses');
+  if(aniversario>referencia){totalMeses--;aniversario=sumarEdad(nacimiento,totalMeses,'meses');}
+  return {anios:Math.floor(totalMeses/12),meses:totalMeses%12,dias:diferenciaDias(aniversario,referencia),edadEnDias:diferenciaDias(nacimiento,referencia)};
 }
 
 /**

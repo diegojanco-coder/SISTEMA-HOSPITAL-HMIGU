@@ -30,21 +30,21 @@ async function generarAlertasPaciente(pacienteId) {
   const { detalle, estadoGeneral, resumen } = motor.evaluarEsquema(paciente, catalogoDosis, historial);
 
   for (const item of detalle) {
-    if (item.estado === 'aplicada' || item.estado === 'futura') {
+    if (!MAPA_SEMAFORO[item.estado]) {
       await alertaModel.eliminarPorPacienteDosis(pacienteId, item.dosisId);
       continue;
     }
-    const cambioAlerta = await alertaModel.upsert({
+    await alertaModel.upsert({
       pacienteId,
       dosisId: item.dosisId,
       estadoSemaforo: MAPA_SEMAFORO[item.estado],
       fechaLimite: item.fechaLimite,
       mensaje: MENSAJES[item.estado](item.vacunaNombre, item.nombreDosis)
     });
-    if (cambioAlerta) {
+    {
       const tutores = await pacienteModel.findTutoresByPacienteId(pacienteId);
       const destinatario = paciente.email || tutores.find((t) => t.email)?.email;
-      await notificacionService.enviarAlertaVacuna({ destinatario, paciente: `${paciente.nombres} ${paciente.apellidos}`, mensaje: MENSAJES[item.estado](item.vacunaNombre, item.nombreDosis), estado: item.estado });
+      await notificacionService.enviarAlertaVacuna({ pacienteId, dosisId: item.dosisId, fechaLimite: item.fechaLimite, destinatario, paciente: `${paciente.nombres} ${paciente.apellidos}`, mensaje: MENSAJES[item.estado](item.vacunaNombre, item.nombreDosis), estado: item.estado });
     }
   }
 
@@ -59,11 +59,12 @@ async function generarAlertasPaciente(pacienteId) {
 async function generarAlertasTodos() {
   const { rows: pacientes } = await pacienteModel.findAll({ page: 1, limit: 100000, q: '' });
   let procesados = 0;
+  let fallidos = 0;
   for (const paciente of pacientes) {
-    await generarAlertasPaciente(paciente.id);
-    procesados += 1;
+    try { await generarAlertasPaciente(paciente.id); procesados += 1; }
+    catch (error) { fallidos += 1; console.error('[ALERTAS] Error de recálculo para paciente', paciente.id, error.code || 'ERROR'); }
   }
-  return { procesados };
+  return { procesados, fallidos };
 }
 
 async function listar(filtros) {

@@ -59,11 +59,11 @@ export default function App() {
           }}
         />
 
-        {/* Gradient overlay con colores vibrantes */}
+        {/* Superposición azul sobria que conserva la fotografía */}
         <div
           className="absolute inset-0"
           style={{
-            background: 'linear-gradient(135deg, rgba(6,182,212,0.92) 0%, rgba(59,130,246,0.88) 30%, rgba(147,51,234,0.85) 60%, rgba(236,72,153,0.82) 100%)'
+            background: 'linear-gradient(135deg, rgba(19,40,61,0.86) 0%, rgba(39,71,96,0.76) 55%, rgba(44,79,98,0.68) 100%)'
           }}
         />
 
@@ -174,15 +174,15 @@ export default function App() {
       </div>
 
       {/* Panel Derecho - Formulario */}
-      <div className="w-full lg:w-[45%] flex items-center justify-center p-8 bg-white">
+      <div className="w-full lg:w-[45%] flex items-center justify-center p-8 bg-card">
         <div className="w-full max-w-md">
           {/* Logo mobile */}
           <div className="flex lg:hidden items-center gap-3 mb-10">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-purple-600 flex items-center justify-center">
+            <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center">
               <Plus className="w-6 h-6 text-white" strokeWidth={3} />
             </div>
             <div>
-              <h1 className="text-gray-900 font-bold text-lg leading-tight" style={{ fontFamily: 'Outfit, sans-serif' }}>
+              <h1 className="text-foreground font-bold text-lg leading-tight" style={{ fontFamily: 'Outfit, sans-serif' }}>
                 Hospital Materno
                 <br />
                 Germán Urquidi
@@ -193,7 +193,7 @@ export default function App() {
           {/* Encabezado */}
           <div className="mb-8">
             <h2
-              className="text-gray-900 mb-2"
+              className="text-foreground mb-2"
               style={{
                 fontFamily: 'Outfit, sans-serif',
                 fontSize: '2.2rem',
@@ -204,7 +204,7 @@ export default function App() {
               Bienvenido/a
             </h2>
             <p
-              className="text-gray-600"
+              className="text-muted-foreground"
               style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: '1rem' }}
             >
               Ingresa tus credenciales institucionales
@@ -223,11 +223,11 @@ export default function App() {
 
           {/* Info de credenciales de prueba */}
           <div
-  className="p-4 rounded-xl bg-blue-50 border border-blue-200 text-blue-700 text-sm mb-6 flex items-center gap-3"
+  className="p-4 rounded-xl bg-muted border border-border text-muted-foreground text-sm mb-6 flex items-center gap-3"
   style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}
 >
-  <div className="p-2 rounded-lg bg-blue-100 shrink-0">
-    <Stethoscope className="w-5 h-5 text-blue-600" />
+  <div className="p-2 rounded-lg bg-secondary shrink-0">
+    <Stethoscope className="w-5 h-5 text-primary" />
   </div>
   <span>Bienvenido/a. Ingresá con tu usuario y contraseña asignados por el hospital.</span>
 </div>
@@ -238,14 +238,14 @@ export default function App() {
             <div className="flex flex-col gap-2">
               <label
                 htmlFor="email"
-                className="text-gray-700 text-sm font-semibold"
+                className="text-foreground text-sm font-semibold"
                 style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}
               >
                 Usuario
               </label>
               <div className="relative">
                 <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                  <Mail className="w-5 h-5 text-gray-400" />
+                  <Mail className="w-5 h-5 text-muted-foreground" />
                 </div>
                 <input
                   id="email"
@@ -255,7 +255,7 @@ export default function App() {
                   maxLength={100}
                   placeholder="usuario"
                   required
-                  className="w-full pl-12 pr-4 py-3.5 rounded-xl border-2 border-gray-200 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10 outline-none transition-all"
+                  className="w-full pl-12 pr-4 py-3.5 rounded-xl border-2 border-border focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all"
                   style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: '0.95rem' }}
                 />
               </div>
@@ -265,14 +265,14 @@ export default function App() {
             <div className="flex flex-col gap-2">
               <label
                 htmlFor="password"
-                className="text-gray-700 text-sm font-semibold"
+                className="text-foreground text-sm font-semibold"
                 style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}
               >
                 Contraseña
               </label>
               <div className="relative">
                 <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                  <Lock className="w-5 h-5 text-gray-400" />
+                  <Lock className="w-5 h-5 text-muted-foreground" />
                 </div>
                 <input
                   id="password"
@@ -282,13 +282,13 @@ export default function App() {
                   maxLength={20}
                   placeholder="••••••••••"
                   required
-                  className="w-full pl-12 pr-14 py-3.5 rounded-xl border-2 border-gray-200 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10 outline-none transition-all"
+                  className="w-full pl-12 pr-14 py-3.5 rounded-xl border-2 border-border focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all"
                   style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: '0.95rem' }}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground transition-colors"
                 >
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
@@ -301,10 +301,10 @@ export default function App() {
               disabled={isLoading}
               className="w-full flex items-center justify-center gap-2 py-4 rounded-xl text-white font-bold transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-70 mt-4"
               style={{
-                background: 'linear-gradient(135deg, #06b6d4 0%, #3b82f6 40%, #8b5cf6 70%, #ec4899 100%)',
+                background: 'linear-gradient(135deg, #31577b 0%, #426a89 100%)',
                 fontFamily: 'Plus Jakarta Sans, sans-serif',
                 fontSize: '1rem',
-                boxShadow: '0 10px 30px rgba(6,182,212,0.3)',
+                boxShadow: '0 8px 22px rgba(35,62,87,0.18)',
               }}
             >
               {isLoading ? (
@@ -326,7 +326,7 @@ export default function App() {
 
           {/* Footer */}
           <p
-            className="text-center text-gray-500 mt-8 text-sm"
+            className="text-center text-muted-foreground mt-8 text-sm"
             style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}
           >
             Sistema restringido al personal de enfermería autorizado

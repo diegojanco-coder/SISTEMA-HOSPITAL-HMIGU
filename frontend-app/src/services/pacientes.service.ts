@@ -1,3 +1,4 @@
+import type { DatosTutor } from './tutores.service';
 import api from '../lib/api';
 import type { EsquemaPaciente, Paciente, Paginado } from '../lib/types';
 
@@ -17,6 +18,11 @@ export async function obtenerEsquemaPaciente(id: number | string) {
 }
 
 export interface DatosPaciente {
+  departamento?: string;
+  esDependiente?: boolean;
+  email?: string;
+  tutorId?: number;
+  tutor?: DatosTutor;
   nombres: string;
   apellidos: string;
   carnetIdentidad?: string;

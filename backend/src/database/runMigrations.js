@@ -13,7 +13,8 @@ const mysql = require('mysql2/promise');
 const { db } = require('../config/env');
 
 async function ejecutarArchivoSQL(connection, rutaArchivo) {
-  const sql = fs.readFileSync(rutaArchivo, 'utf8');
+  if(!/^[A-Za-z0-9_]+$/.test(db.database))throw new Error('DB_NAME solo admite letras, números y guion bajo');
+  const sql = fs.readFileSync(rutaArchivo, 'utf8').replace(/\bvacunacion_hmgu\b/g,db.database);
   console.log(`[MIGRATE] Ejecutando ${path.basename(rutaArchivo)} ...`);
   await connection.query(sql);
   console.log(`[MIGRATE] OK: ${path.basename(rutaArchivo)}`);

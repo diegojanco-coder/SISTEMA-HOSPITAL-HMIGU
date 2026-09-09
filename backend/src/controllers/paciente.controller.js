@@ -1,5 +1,4 @@
 const pacienteService = require('../services/paciente.service');
-const tutorService = require('../services/tutor.service');
 const alertaService = require('../services/alerta.service');
 const { ok, created, fail } = require('../utils/response.util');
 
@@ -38,8 +37,7 @@ async function obtenerEsquema(req, res, next) {
 async function crear(req, res, next) {
   try {
     const paciente = await pacienteService.crear({ ...req.body, creadoPor: req.usuario.id });
-    if (req.body.tutorId) await tutorService.vincularPaciente(req.body.tutorId, paciente.id, true);
-    await alertaService.generarAlertasPaciente(paciente.id);
+    await alertaService.generarAlertasPaciente(paciente.id).catch(error => console.error('[ALERTAS] Paciente guardado; actualización pendiente:', error.message));
     res.locals.auditoriaExtra = { entidadId: paciente.id, datosNuevos: req.body };
     return created(res, paciente, 'Paciente registrado correctamente');
   } catch (error) { return next(error); }
@@ -50,7 +48,7 @@ async function actualizar(req, res, next) {
     const previo = await pacienteService.obtener(req.params.id);
     if (!previo) return fail(res, 'Paciente no encontrado', 404);
     const paciente = await pacienteService.actualizar(req.params.id, req.body);
-    await alertaService.generarAlertasPaciente(req.params.id);
+    await alertaService.generarAlertasPaciente(req.params.id).catch(error => console.error('[ALERTAS] Paciente guardado; actualización pendiente:', error.message));
     res.locals.auditoriaExtra = { entidadId: req.params.id, datosPrevios: previo, datosNuevos: req.body };
     return ok(res, paciente, 'Paciente actualizado correctamente');
   } catch (error) { return next(error); }

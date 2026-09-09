@@ -12,6 +12,12 @@ export async function resumenAlertas() {
 }
 
 export async function recalcularAlertas() {
-  const { data } = await api.post<{ data: { procesados: number } }>('/alertas/recalcular');
+  const { data } = await api.post<{ data: { procesados: number; fallidos: number } }>('/alertas/recalcular');
+  return data.data;
+}
+
+export interface ResumenCorreos { habilitado: boolean; configurado: boolean; estados: { estado: string; total: number }[]; }
+export async function resumenCorreos() {
+  const { data } = await api.get<{ data: ResumenCorreos }>('/alertas/correos/resumen');
   return data.data;
 }

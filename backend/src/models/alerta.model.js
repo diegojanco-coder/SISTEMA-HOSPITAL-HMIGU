@@ -23,7 +23,7 @@ async function findAll({ estado, page = 1, limit = 20 } = {}) {
              INNER JOIN pacientes p ON p.id = a.paciente_id
              INNER JOIN dosis d ON d.id = a.dosis_id
              INNER JOIN vacunas v ON v.id = d.vacuna_id
-             WHERE p.estado = 'activo'`;
+             WHERE p.estado = 'activo' AND d.estado='activo' AND v.estado='activo'`;
   const params = [];
   if (estado) {
     sql += ' AND a.estado_semaforo = ?';
@@ -41,7 +41,7 @@ async function findByPacienteId(pacienteId) {
      FROM alertas a
      INNER JOIN dosis d ON d.id = a.dosis_id
      INNER JOIN vacunas v ON v.id = d.vacuna_id
-     WHERE a.paciente_id = ?
+     WHERE a.paciente_id = ? AND d.estado='activo' AND v.estado='activo'
      ORDER BY FIELD(a.estado_semaforo, "rojo", "amarillo", "verde")`,
     [pacienteId]
   );
@@ -56,6 +56,8 @@ async function resumen() {
   const [rows] = await pool.query(
     `SELECT estado_semaforo, COUNT(*) AS total FROM alertas
      INNER JOIN pacientes p ON p.id = alertas.paciente_id AND p.estado = 'activo'
+     JOIN dosis d ON d.id=alertas.dosis_id AND d.estado='activo'
+     JOIN vacunas v ON v.id=d.vacuna_id AND v.estado='activo'
      GROUP BY estado_semaforo`
   );
   return rows;

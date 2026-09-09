@@ -4,9 +4,10 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
-    "build": "vite build",
-    "dev": "vite",
-    "preview": "vite preview"
+    "build": "vite build --configLoader runner",
+    "dev": "vite --configLoader runner",
+    "preview": "vite preview --configLoader runner",
+    "test": "node --experimental-strip-types --test test/visita.test.ts test/visita-render.test.mjs"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",

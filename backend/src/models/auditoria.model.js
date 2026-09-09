@@ -1,7 +1,7 @@
 const { pool } = require('../config/db');
 
-async function create({ usuarioId, accion, entidad, entidadId, datosPrevios, datosNuevos, ip, userAgent }) {
-  await pool.query(
+async function create({ usuarioId, accion, entidad, entidadId, datosPrevios, datosNuevos, ip, userAgent }, db = pool) {
+  await db.query(
     `INSERT INTO auditoria (usuario_id, accion, entidad, entidad_id, datos_previos, datos_nuevos, ip, user_agent)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     [

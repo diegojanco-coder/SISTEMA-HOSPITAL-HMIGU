@@ -8,20 +8,12 @@ async function listarPorPaciente(req, res, next) {
   } catch (error) { return next(error); }
 }
 
-async function registrar(req, res, next) {
-  try {
-    const registro = await historialService.registrarAplicacion({ ...req.body, usuarioId: req.usuario.id });
-    res.locals.auditoriaExtra = { entidadId: registro.id, datosNuevos: req.body };
-    return created(res, registro, 'Aplicación de vacuna registrada correctamente');
-  } catch (error) { return next(error); }
-}
-
 async function actualizar(req, res, next) {
   try {
-    const registro = await historialService.editarRegistro(req.params.id, req.body);
+    const registro = await historialService.editarRegistro(req.params.id, req.body, { usuarioId: req.usuario.id, ip: req.ip, userAgent: req.headers['user-agent'] });
     res.locals.auditoriaExtra = { entidadId: req.params.id, datosNuevos: req.body };
     return ok(res, registro, 'Registro de historial actualizado correctamente');
   } catch (error) { return next(error); }
 }
 
-module.exports = { listarPorPaciente, registrar, actualizar };
+module.exports = { listarPorPaciente, actualizar };

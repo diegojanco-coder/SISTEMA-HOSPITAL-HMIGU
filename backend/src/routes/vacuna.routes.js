@@ -25,6 +25,16 @@ const reglasDosis = [
   body('intervaloMinimoDias').optional().isInt({ min: 0 }).withMessage('El intervalo mínimo debe ser un número entero mayor o igual a cero.')
 ];
 
+router.put('/dosis/:id/calendario', permitirRoles('administrador'), async (req,res,next)=>{
+ try {
+  const dosis=await require('../services/calendario.service').guardar(req.params.id,req.body,{usuarioId:req.usuario.id,ip:req.ip,userAgent:req.get('user-agent')});
+  // La edición ya está confirmada y auditada; el recálculo no revierte la regla.
+  let advertencias=[];
+  try { const r=await require('../services/alerta.service').generarAlertasTodos();if(r.fallidos)advertencias=['Algunas alertas requieren recálculo.']; }
+  catch { advertencias=['La regla se guardó; queda pendiente recalcular alertas.']; }
+  res.json({success:true,data:{...dosis,advertencias}});
+ } catch(error){next(error);}
+});
 router.get('/', ctrl.listar);
 router.get('/:id', ctrl.obtener);
 router.post('/', permitirRoles('administrador'), reglasVacuna, validar, auditar('CREAR', 'vacunas'), ctrl.crear);

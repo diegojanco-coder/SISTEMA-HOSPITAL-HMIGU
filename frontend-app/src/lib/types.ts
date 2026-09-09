@@ -34,6 +34,9 @@ export interface Tutor {
 }
 
 export interface Paciente {
+  departamento?: string | null;
+  es_dependiente?: number;
+  email?: string | null;
   id: number;
   codigo_paciente: string;
   nombres: string;
@@ -50,7 +53,15 @@ export interface Paciente {
   dosis_aplicadas?: number;
 }
 
+export interface ReglaCalendario {
+ tipo: 'regular' | 'campana'; fuente: string; habilitada?: boolean; version?: number;
+ minMeses: number; maxMesesExclusivo?: number | null; inicio?: string; fin?: string; territorio?: string;
+ programacion?: {base: 'nacimiento' | 'contacto' | 'dosis_previa'; dosisId?: number; valor?: number; unidad?: string};
+}
 export interface Dosis {
+ regla_calendario?: ReglaCalendario | null;
+ edad_recomendada_valor?: number | null;
+ edad_recomendada_unidad?: string | null;
   id: number;
   vacuna_id: number;
   numero_dosis: number;
@@ -72,9 +83,10 @@ export interface Vacuna {
   dosis: Dosis[];
 }
 
-export type EstadoDosis = 'aplicada' | 'futura' | 'proxima' | 'pendiente' | 'atrasada';
+export type EstadoDosis = 'revision' | 'fuera_alcance' | 'aplicada' | 'futura' | 'proxima' | 'pendiente' | 'atrasada';
 
 export interface EsquemaDetalleItem {
+  registrable?: boolean;
   dosisId: number;
   vacunaId: number;
   vacunaNombre: string;
@@ -82,8 +94,8 @@ export interface EsquemaDetalleItem {
   numeroDosis: number;
   nombreDosis: string;
   estado: EstadoDosis;
-  fechaRecomendada: string;
-  fechaLimite: string;
+  fechaRecomendada: string | null;
+  fechaLimite: string | null;
   fechaAplicacion: string | null;
   lote: string | null;
 }
@@ -92,7 +104,8 @@ export interface EsquemaPaciente {
   edad: { anios: number; meses: number; dias: number; edadEnDias: number };
   detalle: EsquemaDetalleItem[];
   resumen: { aplicadas: number; proximas: number; pendientes: number; atrasadas: number; futuras: number };
-  estadoGeneral: 'verde' | 'amarillo' | 'rojo';
+  estadoGeneral: 'verde' | 'amarillo' | 'rojo' | 'revision';
+  advertencia?: string | null;
 }
 
 export interface HistorialItem {

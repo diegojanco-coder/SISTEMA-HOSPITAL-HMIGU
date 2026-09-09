@@ -46,6 +46,8 @@ CREATE TABLE pacientes (
     nombres             VARCHAR(100)        NOT NULL,
     apellidos           VARCHAR(100)        NOT NULL,
     carnet_identidad    VARCHAR(20)         NULL,
+    es_dependiente      TINYINT(1) NOT NULL DEFAULT 0,
+  departamento VARCHAR(30) NULL,
     fecha_nacimiento    DATE                NOT NULL,
     sexo                ENUM('M','F')       NOT NULL,
     direccion           VARCHAR(255)        NULL,
@@ -94,6 +96,7 @@ CREATE TABLE paciente_tutor (
     paciente_id         INT UNSIGNED        NOT NULL,
     tutor_id            INT UNSIGNED        NOT NULL,
     es_principal        TINYINT(1)          NOT NULL DEFAULT 0,
+    estado              ENUM('activo','inactivo') NOT NULL DEFAULT 'activo',
     created_at          DATETIME            NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT uq_paciente_tutor UNIQUE (paciente_id, tutor_id),
     CONSTRAINT fk_pt_paciente FOREIGN KEY (paciente_id) REFERENCES pacientes(id)
@@ -129,6 +132,9 @@ CREATE TABLE dosis (
     numero_dosis            TINYINT UNSIGNED NOT NULL,
     nombre_dosis            VARCHAR(60)   NOT NULL,
     edad_recomendada_dias   INT UNSIGNED  NOT NULL COMMENT 'Edad recomendada en días desde el nacimiento',
+  regla_calendario JSON NULL,
+  edad_recomendada_valor INT UNSIGNED NULL,
+  edad_recomendada_unidad ENUM('dias','semanas','meses','anios') NULL,
     tolerancia_dias         INT UNSIGNED  NOT NULL DEFAULT 30 COMMENT 'Días de gracia antes de marcar como atrasada',
     intervalo_minimo_dias   INT UNSIGNED  NOT NULL DEFAULT 0 COMMENT 'Intervalo mínimo respecto a la dosis anterior',
     estado                  ENUM('activo','inactivo') NOT NULL DEFAULT 'activo',
@@ -240,3 +246,34 @@ CREATE INDEX idx_auditoria_fecha ON auditoria (created_at);
 CREATE INDEX idx_auditoria_usuario ON auditoria (usuario_id);
 
 SET FOREIGN_KEY_CHECKS = 1;
+
+-- Cola persistente de correos
+CREATE TABLE IF NOT EXISTS notificaciones_email (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ clave CHAR(64) NOT NULL UNIQUE,
+ paciente_id INT UNSIGNED NOT NULL,
+ dosis_id INT UNSIGNED NOT NULL,
+ destinatario VARCHAR(150) NULL,
+ paciente_nombre VARCHAR(220) NOT NULL,
+ mensaje VARCHAR(255) NOT NULL,
+ estado_dosis VARCHAR(20) NOT NULL,
+ fecha_limite DATE NOT NULL,
+ estado ENUM('pendiente','enviando','enviado','error','cancelado','sin_destinatario') NOT NULL DEFAULT 'pendiente',
+ intentos INT UNSIGNED NOT NULL DEFAULT 0,
+ proximo_intento DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ enviado_at DATETIME NULL,
+ ultimo_error VARCHAR(100) NULL,
+ created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ FOREIGN KEY (paciente_id) REFERENCES pacientes(id),
+ FOREIGN KEY (dosis_id) REFERENCES dosis(id),
+ INDEX idx_correo_pendiente(estado,proximo_intento)
+) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS notificacion_intentos (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ notificacion_id BIGINT UNSIGNED NOT NULL,
+ resultado ENUM('enviado','error') NOT NULL,
+ codigo_error VARCHAR(100) NULL,
+ created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ FOREIGN KEY (notificacion_id) REFERENCES notificaciones_email(id)
+) ENGINE=InnoDB;

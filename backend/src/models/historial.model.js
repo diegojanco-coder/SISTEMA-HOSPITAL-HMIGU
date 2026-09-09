@@ -16,8 +16,8 @@ async function findByPacienteId(pacienteId) {
   return rows;
 }
 
-async function findById(id) {
-  const [rows] = await pool.query('SELECT * FROM historial_vacunacion WHERE id = ?', [id]);
+async function findById(id, db = pool) {
+  const [rows] = await db.query('SELECT * FROM historial_vacunacion WHERE id = ?', [id]);
   return rows[0] || null;
 }
 
@@ -40,14 +40,14 @@ async function create(data) {
   return findById(result.insertId);
 }
 
-async function update(id, data) {
-  await pool.query(
+async function update(id, data, db = pool) {
+  await db.query(
     `UPDATE historial_vacunacion SET fecha_aplicacion = ?, establecimiento = ?, observaciones = ?
      WHERE id = ?`,
     [data.fechaAplicacion, data.establecimiento || 'Hospital Materno Germán Urquidi',
      data.observaciones || null, id]
   );
-  return findById(id);
+  return findById(id, db);
 }
 
 async function contarAplicadasEntreFechas(desde, hasta) {

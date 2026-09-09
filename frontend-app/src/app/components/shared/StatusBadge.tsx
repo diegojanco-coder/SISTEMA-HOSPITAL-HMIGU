@@ -9,7 +9,7 @@ const ESTILOS: Record<string, string> = {
   pendiente: 'bg-yellow-100 text-yellow-700',
   rojo: 'bg-red-100 text-red-700',
   atrasada: 'bg-red-100 text-red-700',
-  futura: 'bg-gray-100 text-gray-600',
+  futura: 'bg-muted text-muted-foreground',
 };
 
 const ETIQUETAS: Record<string, string> = {
@@ -22,12 +22,14 @@ const ETIQUETAS: Record<string, string> = {
   rojo: 'Atrasada',
   atrasada: 'Atrasada',
   futura: 'Futura',
+  revision: 'Requiere revisión',
+  fuera_alcance: 'Fuera del alcance de esta regla',
 };
 
 export default function StatusBadge({ estado }: { estado: string }) {
   return (
     <span
-      className={`px-3 py-1 rounded-full text-xs font-semibold ${ESTILOS[estado] || 'bg-gray-100 text-gray-600'}`}
+      className={`px-3 py-1 rounded-full text-xs font-semibold ${ESTILOS[estado] || 'bg-muted text-muted-foreground'}`}
       style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}
     >
       {ETIQUETAS[estado] || estado}

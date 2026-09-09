@@ -34,8 +34,8 @@ async function findAll({ page = 1, limit = 10, q = '' } = {}) {
   return { rows, total };
 }
 
-async function findById(id) {
-  const [rows] = await pool.query('SELECT * FROM pacientes WHERE id = ?', [id]);
+async function findById(id, db = pool) {
+  const [rows] = await db.query('SELECT * FROM pacientes WHERE id = ?', [id]);
   return rows[0] || null;
 }
 
@@ -44,15 +44,15 @@ async function findTutoresByPacienteId(pacienteId) {
     `SELECT t.*, pt.es_principal
      FROM tutores t
      INNER JOIN paciente_tutor pt ON pt.tutor_id = t.id
-     WHERE pt.paciente_id = ?`,
+     WHERE pt.paciente_id = ? AND pt.estado = 'activo' AND t.estado = 'activo'`,
     [pacienteId]
   );
   return rows;
 }
 
-async function generarCodigoPaciente() {
+async function generarCodigoPaciente(db = pool) {
   const anio = new Date().getFullYear();
-  const [[{ total }]] = await pool.query(
+  const [[{ total }]] = await db.query(
     "SELECT COUNT(*) AS total FROM pacientes WHERE codigo_paciente LIKE ?",
     [`PAC-${anio}-%`]
   );
@@ -60,29 +60,29 @@ async function generarCodigoPaciente() {
   return `PAC-${anio}-${correlativo}`;
 }
 
-async function create(data) {
-  const codigo = await generarCodigoPaciente();
-  const [result] = await pool.query(
+async function create(data, db = pool) {
+  const codigo = await generarCodigoPaciente(db);
+  const [result] = await db.query(
     `INSERT INTO pacientes
       (codigo_paciente, nombres, apellidos, carnet_identidad, fecha_nacimiento, sexo,
-       direccion, telefono_contacto, email, lugar_nacimiento, creado_por)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       direccion, telefono_contacto, email, lugar_nacimiento, es_dependiente, creado_por, departamento)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [codigo, data.nombres, data.apellidos, data.carnetIdentidad || null, data.fechaNacimiento,
      data.sexo, data.direccion || null, data.telefonoContacto || null, data.email || null, data.lugarNacimiento || null,
-     data.creadoPor || null]
+     data.esDependiente ? 1 : 0, data.creadoPor || null, data.departamento || null]
   );
-  return findById(result.insertId);
+  return findById(result.insertId, db);
 }
 
-async function update(id, data) {
-  await pool.query(
+async function update(id, data, db = pool) {
+  await db.query(
     `UPDATE pacientes SET nombres = ?, apellidos = ?, carnet_identidad = ?, fecha_nacimiento = ?,
-       sexo = ?, direccion = ?, telefono_contacto = ?, email = ?, lugar_nacimiento = ?
+       sexo = ?, direccion = ?, telefono_contacto = ?, email = ?, lugar_nacimiento = ?, es_dependiente = ?, departamento = ?
      WHERE id = ?`,
     [data.nombres, data.apellidos, data.carnetIdentidad || null, data.fechaNacimiento, data.sexo,
-     data.direccion || null, data.telefonoContacto || null, data.email || null, data.lugarNacimiento || null, id]
+     data.direccion || null, data.telefonoContacto || null, data.email || null, data.lugarNacimiento || null, data.esDependiente ? 1 : 0, data.departamento || null, id]
   );
-  return findById(id);
+  return findById(id, db);
 }
 
 async function desactivar(id) {

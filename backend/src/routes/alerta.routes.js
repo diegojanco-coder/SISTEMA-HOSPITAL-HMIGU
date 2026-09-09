@@ -8,6 +8,9 @@ router.use(authMiddleware);
 
 router.get('/', ctrl.listar);
 router.get('/resumen', ctrl.resumen);
+router.get('/correos/resumen', permitirRoles('administrador'), async (req, res, next) => {
+  try { const data = await require('../services/notificacion.service').resumen(); res.json({ success: true, data }); } catch (error) { next(error); }
+});
 router.get('/paciente/:id', ctrl.listarPorPaciente);
 router.patch('/:id/leida', ctrl.marcarLeida);
 router.post('/recalcular', permitirRoles('administrador'), ctrl.recalcularTodas);

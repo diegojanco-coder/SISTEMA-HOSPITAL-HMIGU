@@ -17,19 +17,19 @@ async function findAll({ page = 1, limit = 10, q = '' } = {}) {
   return { rows, total };
 }
 
-async function findById(id) {
-  const [rows] = await pool.query('SELECT * FROM tutores WHERE id = ?', [id]);
+async function findById(id, db = pool) {
+  const [rows] = await db.query('SELECT * FROM tutores WHERE id = ?', [id]);
   return rows[0] || null;
 }
 
-async function create(data) {
-  const [result] = await pool.query(
+async function create(data, db = pool) {
+  const [result] = await db.query(
     `INSERT INTO tutores (nombres, apellidos, carnet_identidad, parentesco, telefono, email, direccion)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
     [data.nombres, data.apellidos, data.carnetIdentidad, data.parentesco, data.telefono || null,
      data.email || null, data.direccion || null]
   );
-  return findById(result.insertId);
+  return findById(result.insertId, db);
 }
 
 async function update(id, data) {
@@ -49,20 +49,20 @@ async function desactivar(id) {
 async function vincularPaciente(tutorId, pacienteId, esPrincipal = false) {
   await pool.query(
     `INSERT INTO paciente_tutor (paciente_id, tutor_id, es_principal) VALUES (?, ?, ?)
-     ON DUPLICATE KEY UPDATE es_principal = VALUES(es_principal)`,
+     ON DUPLICATE KEY UPDATE es_principal = VALUES(es_principal), estado = 'activo'`,
     [pacienteId, tutorId, esPrincipal ? 1 : 0]
   );
 }
 
 async function desvincularPaciente(tutorId, pacienteId) {
-  await pool.query('DELETE FROM paciente_tutor WHERE tutor_id = ? AND paciente_id = ?', [tutorId, pacienteId]);
+  await pool.query("UPDATE paciente_tutor SET estado = 'inactivo', es_principal = 0 WHERE tutor_id = ? AND paciente_id = ?", [tutorId, pacienteId]);
 }
 
 async function findPacientesByTutorId(tutorId) {
   const [rows] = await pool.query(
     `SELECT p.*, pt.es_principal FROM pacientes p
      INNER JOIN paciente_tutor pt ON pt.paciente_id = p.id
-     WHERE pt.tutor_id = ?`,
+     WHERE pt.tutor_id = ? AND pt.estado = 'activo'`,
     [tutorId]
   );
   return rows;

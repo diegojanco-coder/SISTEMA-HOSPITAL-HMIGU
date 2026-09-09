@@ -5,13 +5,15 @@ const roles = require('../middlewares/role.middleware');
 const validar = require('../middlewares/validate.middleware');
 const auditar = require('../middlewares/audit.middleware');
 const ctrl = require('../controllers/lote.controller');
+const {esFechaISOValida}=require('../utils/validation.util');
+const {fechaCivil,isoCivil}=require('../utils/calendario.util');
 const router = Router();
 router.use(auth);
 router.get('/vacuna/:vacunaId/disponibles', ctrl.listarDisponibles);
 router.post('/', roles('administrador'), [
   body('vacunaId').isInt(),
   body('numeroLote').trim().notEmpty().withMessage('El número de lote es obligatorio.').isLength({ max: 50 }).withMessage('El número de lote no puede exceder los 50 caracteres.').matches(/^[A-Za-z0-9]+$/).withMessage('El número de lote solo puede contener letras y números.'),
-  body('fechaVencimiento').isISO8601().custom((valor) => new Date(`${valor}T00:00:00`) > new Date()).withMessage('El lote seleccionado se encuentra vencido o la fecha de expiración es inválida.'),
+  body('fechaVencimiento').custom(valor=>esFechaISOValida(valor) && valor>=isoCivil(fechaCivil(new Date()))).withMessage('El lote seleccionado se encuentra vencido o la fecha de expiración es inválida.'),
   body('cantidadDisponible').isInt({ min: 0 }).withMessage('La cantidad disponible debe ser un número entero mayor o igual a 0.')
 ], validar, auditar('CREAR', 'lotes_vacuna'), ctrl.crear);
 module.exports = router;

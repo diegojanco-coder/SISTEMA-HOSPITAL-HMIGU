@@ -109,7 +109,7 @@ async function coberturaVacunacion() {
     const historial = await historialModel.findByPacienteId(paciente.id);
     const { detalle } = motor.evaluarEsquema(paciente, catalogoDosis, historial);
     detalle
-      .filter((d) => d.estado !== 'futura')
+      .filter((d) => d.dentroAlcance && d.estado !== 'futura')
       .forEach((d) => {
         const actual = acumulado.get(d.vacunaNombre) || { esperadas: 0, aplicadas: 0 };
         actual.esperadas += 1;
@@ -126,7 +126,7 @@ async function coberturaVacunacion() {
   }));
 
   return {
-    titulo: 'Cobertura de vacunación por vacuna',
+    titulo: 'Cobertura por vacuna (alcance del calendario configurado)',
     columnas: [
       { key: 'vacuna', header: 'Vacuna', width: 25 },
       { key: 'esperadas', header: 'Dosis esperadas', width: 16 },

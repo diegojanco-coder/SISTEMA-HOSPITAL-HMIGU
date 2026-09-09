@@ -1,114 +1,86 @@
-# Sistema Web Móvil para el Control y Seguimiento del Esquema de Vacunación Inteligente de Pacientes
+# Sistema de Vacunación — Hospital Materno Germán Urquidi
 
-**Hospital Materno Germán Urquidi — Cochabamba, Bolivia**
+Aplicación React en `frontend-app`, API Express en `backend` y MySQL 8. El directorio `frontend` anterior fue retirado.
 
-Plataforma web responsive (arquitectura cliente-servidor, API REST, MVC) que digitaliza el registro y seguimiento del esquema de vacunación de pacientes, con un motor inteligente que compara la edad exacta de cada paciente contra el Calendario Nacional de Inmunización de Bolivia (PAI) y genera alertas automáticas (verde / amarillo / rojo), carnets digitales en PDF con código QR, y reportes exportables a PDF y Excel.
+## Instalación existente
 
-## Estructura del repositorio
+Desde la carpeta del proyecto, abra dos terminales.
 
-```
-vacunas-hospital/
-├── docs/
-│   ├── 01-ANALISIS.md        # Fase 1: requerimientos, actores, casos de uso, reglas de negocio, flujos
-│   └── 02-DISENO.md          # Fase 2: arquitectura, MER, diagrama relacional, UML, módulos, diseño de API
-├── database/
-│   ├── schema.sql            # Fase 3: script SQL completo (9 tablas, PK/FK/índices/restricciones)
-│   └── seed.sql               # Datos semilla: usuario admin, catálogo PAI Bolivia, pacientes de ejemplo
-├── backend/                  # Fase 4: API REST en Node.js + Express (MVC + servicios)
-└── frontend/                 # Fase 5: SPA en React + Vite + Tailwind CSS
-```
+Terminal del backend:
 
-## Stack tecnológico
-
-- **Frontend:** React 18, Vite, React Router DOM, Axios, Tailwind CSS, React Hook Form, SweetAlert2.
-- **Backend:** Node.js, Express.js, arquitectura MVC + capa de servicios.
-- **Base de datos:** MySQL 8 (InnoDB, utf8mb4).
-- **Seguridad:** JWT, bcrypt, middlewares de autorización por rol, Helmet, CORS restringido, rate limiting, sanitización de entradas, consultas parametrizadas (mysql2).
-- **Módulo inteligente:** cálculo de edad exacta + comparación contra el esquema PAI Bolivia (`backend/src/services/motorVacunacion.service.js`).
-- **Documentos:** generación de PDF (pdfkit), QR (qrcode), Excel (exceljs).
-- **Automatización:** `node-cron` para recálculo diario de alertas y respaldo automático de la base de datos (`mysqldump`).
-
-## Puesta en marcha
-
-### 1. Base de datos
-
-```bash
-mysql -u root -p < database/schema.sql
-mysql -u root -p < database/seed.sql
-```
-
-O bien, desde el backend (usa las credenciales de `.env`):
-
-```bash
+```powershell
 cd backend
-npm run migrate      # crea el esquema
-npm run seed         # crea el esquema + carga datos semilla
-```
-
-**Usuario administrador por defecto:** `admin` / `Admin123!` (cambiar tras el primer inicio de sesión).
-**Usuario de enfermería de prueba:** `enfermeria` / `Admin123!`.
-
-### 2. Backend
-
-```bash
-cd backend
-cp .env.example .env      # ajustar credenciales de MySQL, JWT_SECRET, etc.
 npm install
-npm run dev                # http://localhost:4000/api/v1
+npm run migrate:upgrade
+npm run verificar
+npm run dev
 ```
 
-Verificación rápida: `GET http://localhost:4000/api/v1/health`.
+Terminal de la interfaz:
 
-### 3. Frontend
-
-```bash
-cd frontend
-cp .env.example .env       # VITE_API_URL=http://localhost:4000/api/v1
+```powershell
+cd frontend-app
 npm install
-npm run dev                 # http://localhost:5173
+npm run dev
 ```
 
-### 4. Producción
+Abra http://localhost:5173. La API usa http://localhost:4000/api/v1.
 
-- Backend: `npm start` (o gestionarlo con PM2/Docker); configurar `NODE_ENV=production`, `JWT_SECRET` robusto y `FRONTEND_URL` con el dominio real.
-- Frontend: `npm run build` genera `dist/`, servible con Nginx/Apache o cualquier hosting estático.
-- Base de datos: aplicar `schema.sql` + `seed.sql` (o solo el esquema en producción real, sin datos de ejemplo).
-- Respaldo automático: configurado por defecto a las 02:00 am (`BACKUP_CRON` en `.env`); requiere que `mysqldump` esté disponible en el `PATH` del servidor.
+`npm run catalogo:base`, desde backend, agrega pentavalente, SRP y neumococo con las edades contrastadas sin reemplazar dosis existentes. Para registrar existencias reales use **Configuración → Ingreso de lotes y stock**.
 
-## Módulo inteligente de vacunación (resumen)
+`migrate:upgrade` agrega los cambios y conserva los registros. No ejecute `migrate:reset` ni los archivos `schema.sql` sobre una instalación con datos: recrean la base.
 
-Por cada dosis del calendario PAI Bolivia, el sistema calcula la edad exacta del paciente y determina su estado:
+## Instalación nueva de demostración
 
-| Estado | Semáforo | Condición |
-|---|---|---|
-| Aplicada | — | Existe registro en `historial_vacunacion` |
-| Próxima | Amarillo | Faltan ≤ 30 días para la edad recomendada |
-| Pendiente | Amarillo | La edad recomendada ya se alcanzó, dentro del margen de tolerancia |
-| Atrasada | Rojo | Se superó la edad recomendada + tolerancia sin aplicar |
-| Al día | Verde | El paciente no tiene dosis próximas, pendientes ni atrasadas |
+Requiere Node.js 24 (versión probada), MySQL 8 y npm. Copie `backend/.env.example` a `backend/.env` y configure DB_HOST, DB_USER, DB_PASSWORD, DB_NAME y un JWT_SECRET aleatorio. Copie `frontend-app/.env.example` a `frontend-app/.env` si necesita cambiar la URL de la API.
 
-La lógica es pura y está aislada en `backend/src/services/motorVacunacion.service.js`, reutilizada por el historial, las alertas, el carnet digital y los reportes de cobertura/pendientes.
+Desde `backend`, con una base que todavía no exista:
 
-## Entregables cubiertos
+```powershell
+npm install
+npm run seed
+npm run migrate:upgrade
+npm run verificar
+npm run dev
+```
 
-1. Arquitectura completa — `docs/02-DISENO.md`
-2. Modelo relacional — `docs/02-DISENO.md` (MER + tabla de claves)
-3. Script SQL — `database/schema.sql`, `database/seed.sql`
-4. Backend Express completo — `backend/`
-5. Frontend React completo — `frontend/`
-6. APIs REST — `docs/02-DISENO.md` (tabla de endpoints) + `backend/src/routes`
-7. Sistema JWT — `backend/src/middlewares/auth.middleware.js`, `backend/src/utils/jwt.util.js`
-8. Dashboards (administrador / enfermero) — `frontend/src/pages/DashboardAdmin.jsx`, `DashboardEnfermero.jsx`
-9. CRUDs (usuarios, pacientes, tutores, vacunas/dosis, historial) — controllers/services/models + páginas correspondientes
-10. Reportes PDF/Excel — `backend/src/services/reporte.service.js`, `frontend/src/pages/Reportes.jsx`
-11. Carnet digital PDF con QR — `backend/src/services/carnet.service.js`
-12. Alertas automáticas — `backend/src/services/alerta.service.js` + job programado
-13. Auditoría — `backend/src/middlewares/audit.middleware.js`, tabla `auditoria`
-14. Código comentado — comentarios JSDoc/inline en servicios y utilidades clave
-15. Estructura profesional lista para producción — separación por capas, variables de entorno, scripts de migración y respaldo
+El seed contiene usuarios y pacientes ficticios para demostración. Usuarios iniciales: `admin` y `enfermeria`, contraseña `Admin123!`. Cambie esas contraseñas antes de utilizar datos reales. No use el seed para recuperar un usuario perdido en una base existente.
 
-## Notas de verificación
+## Funciones
 
-- Todos los archivos `.js` del backend pasaron `node --check` (sin errores de sintaxis).
-- Todas las rutas de importación relativas del frontend fueron verificadas (resuelven a un archivo existente) y se validó el balance de llaves/paréntesis en cada archivo.
-- La instalación de dependencias (`npm install`) y el build (`npm run build` / `npm run dev`) deben ejecutarse en el entorno real del desarrollador (requieren acceso completo al registro de npm, no disponible en el entorno de generación de este proyecto).
+- Pacientes de distintas edades, dependientes y vínculos con tutores.
+- Registro de varias dosis por visita, validación de stock, fechas e intervalos configurados.
+- Historial y correcciones administrativas auditadas.
+- Reglas por edad, seguimiento desde dosis anteriores y campañas por vigencia y departamento.
+- Alertas y cola de correo con reintentos; carnet PDF y reportes PDF/Excel.
+- Administración de usuarios, calendario y respaldos.
+
+En **Configuración → Reglas del calendario y campañas**, seleccione una dosis, indique fuente, población y programación y guarde. Cada edición se versiona y audita. Una regla deshabilitada no genera recordatorios. Las temporadas deben usar dosis distintas, conservando las identidades históricas.
+
+El software aplica las reglas configuradas; no se declara validado todo el PAI. Las dosis sin reglas verificadas para adultos requieren revisión. Hay información clínica y pautas pendientes de contrastar: consulte `docs/05-CALENDARIO-ADULTOS.md` y `docs/06-ENTREGA.md`.
+
+## Gmail y respaldos
+
+Configure SMTP_* localmente siguiendo `backend/.env.gmail.example`. Use contraseña de aplicación cuando la cuenta lo requiera; no comparta claves en el chat ni las guarde en Git. SMTP_ENABLED=false conserva la cola sin enviar. En esta instalación se configuró el remitente y Gmail aceptó una prueba autorizada. El envío automático permanece desactivado por decisión del usuario; la aceptación SMTP no certifica recepción en la bandeja de entrada.
+
+`npm run backup`, desde backend, genera un SQL completo. Configure MYSQLDUMP_PATH si la herramienta no está en PATH. Solo se publican respaldos cuyo proceso y escritura finalizaron correctamente; los archivos parciales no se listan. Los respaldos contienen datos de la base y están excluidos de Git.
+
+## Verificación
+
+```powershell
+# backend
+npm test
+npm run verificar
+
+# frontend-app
+npm test
+npm run build
+```
+
+Las pruebas de backend usan transacciones revertidas; la prueba de instalación crea y elimina exclusivamente una base temporal propia con prefijo `hmgu_test_install_`. Requieren permisos MySQL para esa base. No envían correos reales.
+
+Pruebas de navegador: con `npm run preview -- --host 127.0.0.1 --port 5173 --strictPort` activo y Playwright/Edge disponibles, ejecute los archivos `frontend-app/test/*-browser.cjs`. PLAYWRIGHT_MODULE admite la ruta de una instalación externa de Playwright. Estas pruebas interceptan la API con datos ficticios; la prueba `backend/test/flujo-http.integration.test.js` verifica la API real contra MySQL y revierte sus datos.
+
+## Git
+
+Se solicitó un commit por cambio terminado. En esta sesión Git rechaza la escritura de `.git/index.lock`; no se han creado commits del avance acumulado. Los cambios permanecen en los archivos. No se debe afirmar que existe un commit sin comprobar su identificador.

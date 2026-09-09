@@ -3,7 +3,10 @@
  * Centralizar el acceso a process.env evita errores de tipeo
  * dispersos por todo el proyecto.
  */
-require('dotenv').config();
+const path = require('path');
+const fs = require('fs');
+require('dotenv').config({path:path.resolve(__dirname,'../../.env')});
+const dumpWindows=path.join(process.env.ProgramFiles || 'C:/Program Files','MySQL','MySQL Server 8.0','bin','mysqldump.exe');
 
 if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
   throw new Error('JWT_SECRET es obligatorio en producción');
@@ -33,12 +36,13 @@ module.exports = {
 
   backup: {
     cron: process.env.BACKUP_CRON || '0 2 * * *',
-    dir: process.env.BACKUP_DIR || './backups',
-    mysqldumpPath: process.env.MYSQLDUMP_PATH || 'mysqldump'
+    dir: process.env.BACKUP_DIR || path.resolve(__dirname,'../../backups'),
+    mysqldumpPath: process.env.MYSQLDUMP_PATH || (process.platform==='win32' && fs.existsSync(dumpWindows) ? dumpWindows : 'mysqldump')
   },
 
   alertasCron: process.env.ALERTAS_CRON || '0 6 * * *'
   ,smtp: {
+    enabled: process.env.SMTP_ENABLED === 'true',
     host: process.env.SMTP_HOST,
     port: Number(process.env.SMTP_PORT) || 587,
     secure: process.env.SMTP_SECURE === 'true',
