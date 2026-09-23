@@ -5,14 +5,14 @@ async function findAll({ page = 1, limit = 10, q = '' } = {}) {
   const like = `%${q}%`;
   const [rows] = await pool.query(
     `SELECT * FROM tutores
-     WHERE estado = 'activo' AND (nombres LIKE ? OR apellidos LIKE ? OR carnet_identidad LIKE ?)
+     WHERE estado = 'activo' AND (nombres LIKE ? OR apellidos LIKE ? OR carnet_identidad LIKE ? OR CONCAT(nombres,' ',apellidos) LIKE ?)
      ORDER BY apellidos ASC LIMIT ? OFFSET ?`,
-    [like, like, like, Number(limit), Number(offset)]
+    [like, like, like, like, Number(limit), Number(offset)]
   );
   const [[{ total }]] = await pool.query(
     `SELECT COUNT(*) AS total FROM tutores
-     WHERE estado = 'activo' AND (nombres LIKE ? OR apellidos LIKE ? OR carnet_identidad LIKE ?)`,
-    [like, like, like]
+     WHERE estado = 'activo' AND (nombres LIKE ? OR apellidos LIKE ? OR carnet_identidad LIKE ? OR CONCAT(nombres,' ',apellidos) LIKE ?)`,
+    [like, like, like, like]
   );
   return { rows, total };
 }
@@ -26,20 +26,20 @@ async function create(data, db = pool) {
   const [result] = await db.query(
     `INSERT INTO tutores (nombres, apellidos, carnet_identidad, parentesco, telefono, email, direccion)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [data.nombres, data.apellidos, data.carnetIdentidad, data.parentesco, data.telefono || null,
+    [data.nombres, data.apellidos, data.carnetIdentidad || null, data.parentesco, data.telefono || null,
      data.email || null, data.direccion || null]
   );
   return findById(result.insertId, db);
 }
 
-async function update(id, data) {
-  await pool.query(
+async function update(id, data, db = pool) {
+  await db.query(
     `UPDATE tutores SET nombres = ?, apellidos = ?, carnet_identidad = ?, parentesco = ?,
        telefono = ?, email = ?, direccion = ? WHERE id = ?`,
-    [data.nombres, data.apellidos, data.carnetIdentidad, data.parentesco, data.telefono || null,
+    [data.nombres, data.apellidos, data.carnetIdentidad || null, data.parentesco, data.telefono || null,
      data.email || null, data.direccion || null, id]
   );
-  return findById(id);
+  return findById(id, db);
 }
 
 async function desactivar(id) {

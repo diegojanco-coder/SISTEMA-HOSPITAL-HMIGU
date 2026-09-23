@@ -7,7 +7,7 @@
     "build": "vite build --configLoader runner",
     "dev": "vite --configLoader runner",
     "preview": "vite preview --configLoader runner",
-    "test": "node --experimental-strip-types --test test/visita.test.ts test/visita-render.test.mjs"
+    "test": "node --experimental-strip-types --test test/visita.test.ts test/visita-render.test.mjs test/edad-paciente.test.ts"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",

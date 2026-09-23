@@ -16,10 +16,12 @@ const reglasTutor = [
   body('pacienteId').optional().isInt({ min: 1 }).withMessage('Seleccione un paciente válido'),
   reglaTexto('nombres', 'Nombre'),
   reglaTexto('apellidos', 'Apellido'),
-  body('carnetIdentidad').trim().notEmpty().withMessage('El carnet de identidad es obligatorio').matches(CI_REGEX).withMessage('La cédula de identidad debe tener 6 a 8 dígitos y una extensión boliviana válida opcional.'),
+  body('carnetIdentidad').optional({checkFalsy:true}).trim().matches(CI_REGEX).withMessage('La cédula de identidad debe tener 6 a 8 dígitos y una extensión boliviana válida opcional.'),
   body('parentesco').isLength({ max: 30 }).withMessage('El parentesco no puede exceder los 30 caracteres.').isIn(['padre', 'madre', 'tutor_legal', 'otro']),
   body('telefono').notEmpty().withMessage('El teléfono es obligatorio.').trim().custom(esTelefonoBoliviano).withMessage('El teléfono debe ser celular boliviano (8 dígitos e iniciar con 6 o 7) o línea fija regional válida.'),
-  body('email').trim().notEmpty().withMessage('El correo electrónico es obligatorio.').isLength({ max: 120 }).withMessage('El email no puede exceder los 100 caracteres.').isEmail().withMessage('Por favor, ingrese un correo electrónico válido.')
+  body('guardarPrerregistro').optional().custom(value=>typeof value==='boolean').withMessage('Confirme si falta el correo'),
+  body('email').custom((value,{req})=>Boolean(value?.trim()) || req.body.guardarPrerregistro===true).withMessage('El correo es obligatorio salvo que confirme que no dispone de correo.'),
+  body('email').optional({checkFalsy:true}).trim().isLength({ max: 120 }).withMessage('El email no puede exceder los 120 caracteres.').isEmail().withMessage('Por favor, ingrese un correo electrónico válido.')
 ];
 
 router.get('/', ctrl.listar);

@@ -1,14 +1,15 @@
 const { pool } = require('../config/db');
 
-async function findByPacienteId(pacienteId) {
-  const [rows] = await pool.query(
+async function findByPacienteId(pacienteId, db = pool) {
+  const [rows] = await db.query(
     `SELECT h.*, d.nombre_dosis, d.numero_dosis, v.nombre AS vacuna_nombre, v.nombre_corto,
-            u.nombre_completo AS aplicado_por, lv.numero_lote AS lote
+            CASE WHEN h.origen='local' THEN u.nombre_completo ELSE NULL END AS aplicado_por,
+            u.nombre_completo AS registrado_por, lv.numero_lote AS lote
      FROM historial_vacunacion h
      INNER JOIN dosis d ON d.id = h.dosis_id
      INNER JOIN vacunas v ON v.id = d.vacuna_id
      LEFT JOIN usuarios u ON u.id = h.usuario_id
-     INNER JOIN lotes_vacuna lv ON lv.id = h.lote_vacuna_id
+     LEFT JOIN lotes_vacuna lv ON lv.id = h.lote_vacuna_id
      WHERE h.paciente_id = ?
      ORDER BY h.fecha_aplicacion ASC`,
     [pacienteId]
@@ -42,10 +43,11 @@ async function create(data) {
 
 async function update(id, data, db = pool) {
   await db.query(
-    `UPDATE historial_vacunacion SET fecha_aplicacion = ?, establecimiento = ?, observaciones = ?
+    `UPDATE historial_vacunacion SET fecha_aplicacion = ?, establecimiento = ?, observaciones = ?,
+       documento_referencia = CASE WHEN origen='externo' THEN COALESCE(?,documento_referencia) ELSE NULL END
      WHERE id = ?`,
     [data.fechaAplicacion, data.establecimiento || 'Hospital Materno Germán Urquidi',
-     data.observaciones || null, id]
+     data.observaciones || null, data.documentoReferencia ?? null, id]
   );
   return findById(id, db);
 }
@@ -56,7 +58,7 @@ async function contarAplicadasEntreFechas(desde, hasta) {
      FROM historial_vacunacion h
      INNER JOIN dosis d ON d.id = h.dosis_id
      INNER JOIN vacunas v ON v.id = d.vacuna_id
-     WHERE h.fecha_aplicacion BETWEEN ? AND ?
+     WHERE h.origen='local' AND h.fecha_aplicacion BETWEEN ? AND ?
      GROUP BY v.nombre ORDER BY total DESC`,
     [desde, hasta]
   );

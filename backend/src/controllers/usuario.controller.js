@@ -37,10 +37,10 @@ async function actualizar(req, res, next) {
 async function cambiarPassword(req, res, next) {
   try {
     const { password } = req.body;
-    if (!password || password.length < 6) {
-      return fail(res, 'La contraseña debe tener al menos 6 caracteres', 422);
+    if (!password || password.length < 8) {
+      return fail(res, 'La contraseña debe tener al menos 8 caracteres', 422);
     }
-    await usuarioService.cambiarPassword(req.params.id, password);
+    await usuarioService.cambiarPassword(req.params.id, password,{usuarioId:req.usuario.id,ip:req.ip,userAgent:req.get('user-agent')});
     return ok(res, null, 'Contraseña actualizada correctamente');
   } catch (error) { return next(error); }
 }

@@ -1,3 +1,4 @@
+const { validarEdadesPorSexo } = require('../utils/elegibilidad.util');
 const transaction = require('../utils/transaction.util');
 const auditoria = require('../models/auditoria.model');
 const { esFechaISOValida } = require('../utils/validation.util');
@@ -13,16 +14,19 @@ function validarRegla(data) {
  if(typeof r.habilitada!=='boolean')throw new CalendarioError('Indique si la regla está habilitada');
  if(!Number.isInteger(r.minMeses) || r.minMeses<0 || r.minMeses>1800)throw new CalendarioError('Edad mínima inválida');
  if(r.maxMesesExclusivo!=null && (!Number.isInteger(r.maxMesesExclusivo) || r.maxMesesExclusivo<=r.minMeses || r.maxMesesExclusivo>1800))throw new CalendarioError('La edad máxima debe superar la mínima');
+ if(!validarEdadesPorSexo(r.edadesPorSexo))throw new CalendarioError('Defina rangos de edad válidos para al menos un sexo registrado');
  if(r.tipo==='campana' && (!esFechaISOValida(r.inicio) || !esFechaISOValida(r.fin) || r.fin<r.inicio || !territorios.includes(r.territorio)))throw new CalendarioError('La campaña requiere fechas válidas y territorio');
  const p=r.programacion;
  if(!p || !['nacimiento','contacto','dosis_previa'].includes(p.base))throw new CalendarioError('Seleccione el origen de la programación');
  if(p.base==='dosis_previa' && (!Number.isInteger(p.dosisId) || p.dosisId<=0 || !Number.isInteger(p.valor) || p.valor<1 || p.valor>10000 || !unidades.includes(p.unidad)))throw new CalendarioError('Defina la dosis anterior y su intervalo');
+ if(p.permitirOtraVacuna!==undefined && typeof p.permitirOtraVacuna!=='boolean')throw new CalendarioError('Indique si el antecedente puede pertenecer a otra vacuna');
  if(!Number.isInteger(data.edadValor) || data.edadValor<0 || data.edadValor>60000 || !unidades.includes(data.edadUnidad))throw new CalendarioError('Edad recomendada inválida');
  if(!Number.isInteger(data.toleranciaDias) || data.toleranciaDias<0 || data.toleranciaDias>3650)throw new CalendarioError('Margen de seguimiento inválido');
  if(!Number.isInteger(data.version) || data.version<0)throw new CalendarioError('Versión de calendario inválida');
  return {tipo:r.tipo,fuente:r.fuente.trim(),habilitada:r.habilitada,minMeses:r.minMeses,maxMesesExclusivo:r.maxMesesExclusivo??null,
+ ...(r.edadesPorSexo!==undefined?{edadesPorSexo:Object.fromEntries(Object.entries(r.edadesPorSexo).map(([sexo,rango])=>[sexo,{minMeses:rango.minMeses,maxMesesExclusivo:rango.maxMesesExclusivo}]))}:{}),
  ...(r.tipo==='campana'?{inicio:r.inicio,fin:r.fin,territorio:r.territorio}:{}),
- programacion:p.base==='dosis_previa'?{base:p.base,dosisId:p.dosisId,valor:p.valor,unidad:p.unidad}:{base:p.base}};
+ programacion:p.base==='dosis_previa'?{base:p.base,dosisId:p.dosisId,valor:p.valor,unidad:p.unidad,...(p.permitirOtraVacuna===true?{permitirOtraVacuna:true}:{})}:{base:p.base}};
 }
 async function guardar(id,data,actor={}) {
  const regla=validarRegla(data);
@@ -34,13 +38,14 @@ async function guardar(id,data,actor={}) {
   const previa=typeof actual.regla_calendario==='string'?JSON.parse(actual.regla_calendario):actual.regla_calendario;
   if((previa?.version||0)!==data.version)throw new CalendarioError('La regla fue modificada. Recargue antes de guardar.',409);
   if(regla.programacion.base==='dosis_previa') {
-   let referencia=regla.programacion.dosisId;const vistos=new Set([actual.id]);
+   let referencia=regla.programacion.dosisId,origen=actual,pauta=regla.programacion;const vistos=new Set([actual.id]);
    while(referencia){
     if(vistos.has(referencia))throw new CalendarioError('Las dosis no pueden formar un ciclo');vistos.add(referencia);
     const anterior=catalogo.find(d=>d.id===referencia);
-    if(!anterior || anterior.vacuna_id!==actual.vacuna_id || anterior.estado!=='activo')throw new CalendarioError('La dosis anterior debe estar activa y pertenecer a la misma vacuna');
+    if(!anterior || anterior.estado!=='activo' || (anterior.vacuna_id!==origen.vacuna_id && pauta.permitirOtraVacuna!==true))throw new CalendarioError('La dosis anterior debe estar activa y pertenecer a la misma vacuna, salvo selección explícita de otra vacuna');
     const a=typeof anterior.regla_calendario==='string'?JSON.parse(anterior.regla_calendario):anterior.regla_calendario;
-    referencia=a?.programacion?.base==='dosis_previa'?a.programacion.dosisId:null;
+    origen=anterior;pauta=a?.programacion;
+    referencia=pauta?.base==='dosis_previa'?pauta.dosisId:null;
    }
   }
   regla.version=data.version+1;

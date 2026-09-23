@@ -15,5 +15,11 @@ async function actualizar(req, res, next) {
     return ok(res, registro, 'Registro de historial actualizado correctamente');
   } catch (error) { return next(error); }
 }
+async function registrarAntecedente(req,res,next){
+ try{
+  const registro=await historialService.registrarAntecedente(req.body,{usuarioId:req.usuario.id,ip:req.ip,userAgent:req.headers['user-agent']});
+  return created(res,registro,'Antecedente externo registrado correctamente');
+ }catch(error){return next(error);}
+}
 
-module.exports = { listarPorPaciente, actualizar };
+module.exports = { listarPorPaciente, actualizar, registrarAntecedente };

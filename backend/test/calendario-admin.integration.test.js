@@ -27,3 +27,22 @@ test('rechaza campaña sin fechas, fuente insegura e intervalo inválido',()=>{
  const q=payload();q.regla.fuente='javascript:alert(1)';assert.throws(()=>service.validarRegla(q),/dirección/);
  const r=payload();r.regla.programacion={base:'dosis_previa',dosisId:1,valor:0,unidad:'meses'};assert.throws(()=>service.validarRegla(r),/intervalo/);
 });
+
+test('guarda y audita rangos por sexo, conserva ante conflicto y permite retirarlos',()=>isolated(async(c,[id])=>{
+ const p=payload();p.regla.minMeses=120;p.regla.maxMesesExclusivo=180;p.regla.programacion={base:'contacto'};
+ p.regla.edadesPorSexo={F:{minMeses:120,maxMesesExclusivo:180},M:{minMeses:120,maxMesesExclusivo:132}};
+ const r=await service.guardar(id,p);assert.deepEqual(r.regla_calendario.edadesPorSexo,p.regla.edadesPorSexo);
+ const [[a]]=await c.query("SELECT datos_nuevos FROM auditoria WHERE entidad='calendario' AND entidad_id=? ORDER BY id DESC LIMIT 1",[id]);
+ const json=x=>typeof x==='string'?JSON.parse(x):x;
+ assert.deepEqual(json(json(a.datos_nuevos).regla_calendario).edadesPorSexo,p.regla.edadesPorSexo);
+ await assert.rejects(service.guardar(id,{...p,regla:{...p.regla,edadesPorSexo:{F:{minMeses:0,maxMesesExclusivo:null}}}}),e=>e.status===409);
+ const [[conservada]]=await c.query('SELECT regla_calendario FROM dosis WHERE id=?',[id]);assert.deepEqual(json(conservada.regla_calendario).edadesPorSexo,p.regla.edadesPorSexo);
+ const q={...p,version:1,regla:{...p.regla}};delete q.regla.edadesPorSexo;
+ const final=await service.guardar(id,q);assert.equal(final.regla_calendario.edadesPorSexo,undefined);assert.equal(final.regla_calendario.version,2);
+}));
+test('administración rechaza mapas por sexo inválidos con estado 422',()=>{
+ for(const edadesPorSexo of [null,{},[],{X:{minMeses:0,maxMesesExclusivo:null}},{F:{minMeses:120,maxMesesExclusivo:120}},{F:{minMeses:'120',maxMesesExclusivo:180}},{F:{minMeses:120}},{F:{minMeses:120,maxMesesExclusivo:null,extra:true}}]){
+  const p=payload();p.regla.edadesPorSexo=edadesPorSexo;
+  assert.throws(()=>service.validarRegla(p),e=>e.status===422&&/sexo/.test(e.message));
+ }
+});

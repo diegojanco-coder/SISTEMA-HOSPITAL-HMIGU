@@ -50,32 +50,35 @@ function crearDocumentoConEncabezado(titulo, subtitulo = '') {
 function dibujarTablaSimple(doc, { headers, rows, startY, colWidths }) {
   const startX = 40;
   let y = startY;
-  const rowHeight = 20;
-
-  doc.fontSize(9).fillColor('#ffffff');
-  doc.rect(startX, y, colWidths.reduce((a, b) => a + b, 0), rowHeight).fill(AZUL);
-  let x = startX;
-  headers.forEach((h, i) => {
-    doc.fillColor('#ffffff').text(h, x + 4, y + 6, { width: colWidths[i] - 8 });
-    x += colWidths[i];
-  });
-  y += rowHeight;
-
-  doc.fillColor('#000000').fontSize(9);
-  rows.forEach((row, idx) => {
-    if (y > doc.page.height - 60) {
-      doc.addPage();
-      y = 40;
-    }
-    if (idx % 2 === 0) {
-      doc.rect(startX, y, colWidths.reduce((a, b) => a + b, 0), rowHeight).fill('#f2f6fc');
-      doc.fillColor('#000000');
-    }
-    x = startX;
-    row.forEach((cell, i) => {
-      doc.fillColor('#222222').text(String(cell ?? ''), x + 4, y + 6, { width: colWidths[i] - 8 });
+  const width = colWidths.reduce((a, b) => a + b, 0);
+  doc.fontSize(9);
+  const altura = cells => Math.max(20, ...cells.map((cell, i) => doc.heightOfString(String(cell ?? ''), { width: colWidths[i] - 8 }) + 8));
+  const headerHeight = altura(headers);
+  function celdas(cells, color) {
+    let x = startX;
+    cells.forEach((cell, i) => {
+      doc.fillColor(color).text(String(cell ?? ''), x + 4, y + 4, { width: colWidths[i] - 8 });
       x += colWidths[i];
     });
+  }
+  function cabecera() {
+    doc.rect(startX, y, width, headerHeight).fill(AZUL);
+    celdas(headers, '#ffffff');
+    y += headerHeight;
+  }
+  if (y + headerHeight + (rows.length ? altura(rows[0]) : 0) > doc.page.height - 60) { doc.addPage(); y = 40; }
+  cabecera();
+  rows.forEach((row, idx) => {
+    const rowHeight = altura(row);
+    if (y + rowHeight > doc.page.height - 60) {
+      doc.addPage();
+      y = 40;
+      cabecera();
+    }
+    if (idx % 2 === 0) {
+      doc.rect(startX, y, width, rowHeight).fill('#f2f6fc');
+    }
+    celdas(row, '#222222');
     y += rowHeight;
   });
 

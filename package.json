@@ -1,0 +1,11 @@
+{
+  "name": "sistema-hospital-hmgu",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/preparar.cjs",
+    "start": "node scripts/iniciar.cjs",
+    "verificar": "npm --prefix backend run verificar",
+    "test": "node scripts/probar.cjs"
+  }
+}

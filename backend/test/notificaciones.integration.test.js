@@ -46,6 +46,27 @@ test('sin destinatario se registra para seguimiento',()=>isolated(async(c,data,e
  await service.enviarAlertaVacuna({...data,destinatario:''});await service.procesarPendientes();
  const [[r]]=await c.query('SELECT estado FROM notificaciones_email WHERE paciente_id=?',[data.pacienteId]);assert.equal(r.estado,'sin_destinatario');assert.equal(enviados(),0);
 }));
+
+test('prerregistro y nombre provisional cancelan correos pendientes sin enviarlos',async()=>{
+ for(const campo of ['registro_pendiente','identidad_provisional'])await isolated(async(c,data,enviados)=>{
+  await service.enviarAlertaVacuna(data);
+  await c.query('UPDATE pacientes SET '+campo+'=1 WHERE id=?',[data.pacienteId]);
+  await service.procesarPendientes();assert.equal(enviados(),0);
+  const [[r]]=await c.query('SELECT estado FROM notificaciones_email WHERE paciente_id=?',[data.pacienteId]);assert.equal(r.estado,'cancelado');
+ });
+});
+
+test('solo envía al tutor principal elegido, nunca a otros tutores ni al correo antiguo del menor',()=>isolated(async(c,data,enviados)=>{
+ await c.query("UPDATE pacientes SET fecha_nacimiento='2020-01-01',contacto_alertas='tutor' WHERE id=?",[data.pacienteId]);
+ for(const [email,principal] of [['principal@example.invalid',1],['otro@example.invalid',0]]){
+  const [t]=await c.query("INSERT INTO tutores(nombres,apellidos,parentesco,telefono,email) VALUES ('Tutor','Ensayo','otro','70000000',?)",[email]);
+  await c.query('INSERT INTO paciente_tutor(paciente_id,tutor_id,es_principal) VALUES (?,?,?)',[data.pacienteId,t.insertId,principal]);
+  await service.enviarAlertaVacuna({...data,destinatario:email});
+ }
+ await service.enviarAlertaVacuna(data);await service.procesarPendientes();assert.equal(enviados(),1);
+ const [rows]=await c.query('SELECT destinatario,estado FROM notificaciones_email WHERE paciente_id=?',[data.pacienteId]);
+ for(const row of rows)assert.equal(row.estado,row.destinatario==='principal@example.invalid'?'enviado':'cancelado');
+}));
 test('se detiene después de cinco intentos',()=>isolated(async(c,data,enviados)=>{
  await service.enviarAlertaVacuna(data);await c.query("UPDATE notificaciones_email SET intentos=5,estado='error' WHERE paciente_id=?",[data.pacienteId]);await service.procesarPendientes();assert.equal(enviados(),0);
 }));
@@ -66,3 +87,14 @@ test('seguimiento sin antecedente cancela correo aunque exista una alerta',()=>i
  await service.procesarPendientes();
  const [[r]]=await c.query('SELECT estado FROM notificaciones_email WHERE paciente_id=?',[data.pacienteId]);assert.equal(r.estado,'cancelado');assert.equal(enviados(),0);
 }));
+
+test('notificación conserva sexo al comprobar vigencia y cancela grupos excluidos',async()=>{
+ for(const sexo of ['F','M'])await isolated(async(c,data,enviados)=>{
+  await c.query('UPDATE pacientes SET sexo=? WHERE id=?',[sexo,data.pacienteId]);
+  await c.query('UPDATE dosis SET regla_calendario=?,tolerancia_dias=30 WHERE id=?',[JSON.stringify({tipo:'regular',minMeses:0,maxMesesExclusivo:1800,fuente:'fixture',edadesPorSexo:{F:{minMeses:0,maxMesesExclusivo:1800}},programacion:{base:'nacimiento'}}),data.dosisId]);
+  await c.query("UPDATE alertas SET fecha_limite='2000-01-31' WHERE paciente_id=?",[data.pacienteId]);
+  await service.enviarAlertaVacuna({...data,fechaLimite:'2000-01-31'});await service.procesarPendientes();
+  const [[r]]=await c.query('SELECT estado FROM notificaciones_email WHERE paciente_id=?',[data.pacienteId]);
+  assert.equal(r.estado,sexo==='F'?'enviado':'cancelado');assert.equal(enviados(),sexo==='F'?1:0);
+ });
+});

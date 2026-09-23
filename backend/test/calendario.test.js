@@ -88,3 +88,42 @@ test('edad exacta no produce días negativos al cruzar febrero',()=>{
  assert.deepEqual(calcularEdadExacta('2025-01-31',new Date(2025,2,1)),{anios:0,meses:1,dias:1,edadEnDias:29});
  assert.deepEqual(calcularEdadExacta('2024-02-29',new Date(2025,1,28)),{anios:1,meses:0,dias:0,edadEnDias:365});
 });
+
+const reglaSexos={tipo:'regular',fuente,minMeses:120,maxMesesExclusivo:180,programacion:{base:'contacto'},edadesPorSexo:{F:{minMeses:120,maxMesesExclusivo:180},M:{minMeses:120,maxMesesExclusivo:132}}};
+test('VPH respeta el décimo, undécimo y decimoquinto cumpleaños por sexo',()=>{
+ const d={...dosis,regla_calendario:reglaSexos};const p={fecha_nacimiento:'2016-09-12'};
+ for(const sexo of ['F','M']){
+  assert.equal(evaluarAlcance({...p,sexo},d,'2026-09-11'),'fuera_alcance');
+  assert.equal(evaluarAlcance({...p,sexo},d,'2026-09-12'),null);
+ }
+ assert.equal(evaluarAlcance({...p,sexo:'M'},d,'2027-09-11'),null);
+ assert.equal(evaluarAlcance({...p,sexo:'M'},d,'2027-09-12'),'fuera_alcance');
+ assert.equal(evaluarAlcance({...p,sexo:'F'},d,'2031-09-11'),null);
+ assert.equal(evaluarAlcance({...p,sexo:'F'},d,'2031-09-12'),'fuera_alcance');
+ assert.equal(evaluarAlcance({fecha_nacimiento:'2016-02-29',sexo:'M'},d,'2027-02-27'),null);
+ assert.equal(evaluarAlcance({fecha_nacimiento:'2016-02-29',sexo:'M'},d,'2027-02-28'),'fuera_alcance');
+});
+test('rangos específicos se intersectan con edades generales y exigen sexo conocido',()=>{
+ const p={fecha_nacimiento:'2012-09-12',sexo:'F'};
+ assert.equal(evaluarAlcance(p,{regla_calendario:{...reglaSexos,maxMesesExclusivo:132}},'2026-09-12'),'fuera_alcance');
+ assert.equal(evaluarAlcance(p,{regla_calendario:{...reglaSexos,minMeses:175}},'2026-09-12'),'fuera_alcance');
+ assert.equal(evaluarAlcance(p,{regla_calendario:{...reglaSexos,edadesPorSexo:{M:{minMeses:120,maxMesesExclusivo:180}}}},'2026-09-12'),'fuera_alcance');
+ for(const sexo of [null,undefined,'X','f'])assert.equal(evaluarAlcance({...p,sexo},{regla_calendario:reglaSexos},'2026-09-12'),'revision');
+ const antigua={...reglaSexos};delete antigua.edadesPorSexo;
+ assert.equal(evaluarAlcance({...p,sexo:undefined},{regla_calendario:antigua},'2026-09-12'),null);
+});
+test('rangos malformados requieren revisión, sin ampliar automáticamente el alcance',()=>{
+ for(const edadesPorSexo of [null,{},[],{X:{minMeses:120,maxMesesExclusivo:180}},{F:null},{F:[]},{F:{minMeses:'120',maxMesesExclusivo:180}},{F:{minMeses:120,maxMesesExclusivo:120}},{F:{minMeses:120}},{F:{minMeses:-1,maxMesesExclusivo:null}},{F:{minMeses:120,maxMesesExclusivo:null,otra:1}}]){
+  const r={...reglaSexos,edadesPorSexo};
+  assert.equal(evaluarAlcance({fecha_nacimiento:'2012-09-12',sexo:'F'},{regla_calendario:JSON.stringify(r)},'2026-09-12'),'revision');
+ }
+ assert.equal(evaluarAlcance({fecha_nacimiento:'2012-09-12',sexo:'F'},{regla_calendario:{...reglaSexos,edadesPorSexo:{F:{minMeses:120,maxMesesExclusivo:null}}}},'2026-09-12'),null);
+});
+test('motor solo permite contacto a grupo elegible y conserva aplicaciones históricas',()=>{
+ const d={...dosis,regla_calendario:reglaSexos};const p={fecha_nacimiento:'2012-09-12',sexo:'F'};
+ const evaluar=(paciente,historial=[])=>evaluarEsquema(paciente,[d],historial,new Date(2026,8,12)).detalle[0];
+ assert.equal(evaluar(p).registrable,true);assert.equal(evaluar(p).estado,'revision');
+ assert.equal(evaluar({...p,sexo:'M'}).registrable,false);assert.equal(evaluar({...p,sexo:'M'}).estado,'fuera_alcance');
+ assert.equal(evaluar({...p,sexo:'M'},[{dosis_id:d.id,fecha_aplicacion:'2022-09-12'}]).estado,'aplicada');
+ assert.equal(evaluar({...p,sexo:null}).registrable,false);
+});

@@ -16,7 +16,9 @@ async function validarAplicacion(db,paciente,dosis,fecha,historial) {
   }
  }
  if(Number(dosis.intervalo_minimo_dias)>0 && Number(dosis.numero_dosis)>1){
-  const [[anterior]]=await db.query('SELECT id FROM dosis WHERE vacuna_id=? AND numero_dosis=?',[dosis.vacuna_id,Number(dosis.numero_dosis)-1]);
+  const [[anterior]]=regla?.programacion?.base==='dosis_previa'
+   ?await db.query('SELECT id FROM dosis WHERE id=?',[regla.programacion.dosisId])
+   :await db.query('SELECT id FROM dosis WHERE vacuna_id=? AND numero_dosis=?',[dosis.vacuna_id,Number(dosis.numero_dosis)-1]);
   const antecedente=anterior&&historial.find(h=>h.dosis_id===anterior.id);
   if(!antecedente)throw new AplicacionError('Falta registrar la dosis anterior para comprobar el intervalo mínimo');
   const minima=isoCivil(sumarEdad(fechaCivil(antecedente.fecha_aplicacion),Number(dosis.intervalo_minimo_dias),'dias'));

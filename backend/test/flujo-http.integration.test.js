@@ -16,7 +16,7 @@ test('flujo HTTP: login, permisos, paciente, catálogo, regla, lote, aplicación
  await json('/auth/me',nurse);assert.equal((await req('/usuarios',nurse)).status,403);assert.equal((await req('/vacunas/dosis/1/calendario',nurse,'PUT',{})).status,403);
  // Regression: ordinary passwords containing digits must be accepted.
  const u=await json('/usuarios',admin,'POST',{nombreCompleto:'Usuario Temporal',email:`nuevo${tag}@example.invalid`,username:'nuevo'+tag,password,rol:'enfermero'},201);assert.ok(u.id);
- const p=await json('/pacientes',nurse,'POST',{nombres:'Persona',apellidos:'Temporal',fechaNacimiento:'1990-01-01',sexo:'F',departamento:'Cochabamba'},201);
+ const p=await json('/pacientes',nurse,'POST',{nombres:'Persona',apellidos:'Temporal',fechaNacimiento:'1990-01-01',sexo:'F',departamento:'Cochabamba',telefonoContacto:'70000000',email:'paciente@example.invalid'},201);
  assert.equal((await json('/pacientes/'+p.id,nurse)).departamento,'Cochabamba');
  const v=await json('/vacunas',admin,'POST',{nombre:'Prueba '+tag,nombreCorto:tag},201);
  const d=await json(`/vacunas/${v.id}/dosis`,admin,'POST',{numeroDosis:1,nombreDosis:'Al contacto',edadRecomendadaDias:0,toleranciaDias:30},201);
@@ -31,6 +31,19 @@ test('flujo HTTP: login, permisos, paciente, catálogo, regla, lote, aplicación
  for(const tipo of ['pacientes-registrados','vacunas-aplicadas','vacunas-pendientes','cobertura-vacunacion','pacientes-por-edad','vacunas-por-fecha'])await json(`/reportes/${tipo}?desde=${hoy}&hasta=${hoy}&fecha=${hoy}`,admin);
  for(const [url,magic] of [[`/pacientes/${p.id}/carnet`,'%PDF'],['/reportes/pacientes-registrados?formato=pdf','%PDF'],['/reportes/pacientes-registrados?formato=excel','PK']]){const r=await req(url,admin);assert.equal(r.status,200);assert.equal(Buffer.from(await r.arrayBuffer()).subarray(0,magic.length).toString(),magic);}
  for(const url of ['/alertas','/alertas/resumen','/alertas/correos/resumen','/auditoria','/backup'])await json(url,admin);
+ const externa=await json(`/vacunas/${v.id}/dosis`,admin,'POST',{numeroDosis:2,nombreDosis:'Antecedente documentado',edadRecomendadaDias:0,toleranciaDias:30},201);
+ await json(`/vacunas/dosis/${externa.id}/calendario`,admin,'PUT',{version:0,edadValor:0,edadUnidad:'dias',toleranciaDias:30,regla:{tipo:'regular',minMeses:216,fuente:'https://example.invalid/norma',habilitada:true,programacion:{base:'contacto'}}});
+ const documento={pacienteId:p.id,dosisId:externa.id,fechaAplicacion:hoy,establecimiento:'Centro externo de ensayo',documentoReferencia:'Carnet ficticio 123'};
+ assert.equal((await req('/historial/antecedentes',null,'POST',documento)).status,401);
+ for(const body of [{...documento,documentoReferencia:''},{...documento,loteVacunaId:l.id},{...documento,origen:'local'}])assert.equal((await req('/historial/antecedentes',nurse,'POST',body)).status,422);
+ const registro=await json('/historial/antecedentes',nurse,'POST',documento,201);
+ assert.equal(registro.origen,'externo');assert.equal(registro.cita_id,null);assert.equal(registro.lote_vacuna_id,null);
+ assert.equal((await req('/historial/antecedentes',admin,'POST',documento)).status,409);
+ assert.equal((await req('/historial/'+registro.id,nurse,'PUT',documento)).status,403);
+ await json('/historial/'+registro.id,admin,'PUT',{...documento,documentoReferencia:'Carnet ficticio corregido'});
+ const historialFinal=await json('/historial/paciente/'+p.id,nurse);
+ assert.equal(historialFinal.length,2);assert.equal(historialFinal.find(x=>x.id===registro.id).aplicado_por,null);
+ assert.equal((await json(`/pacientes/${p.id}/esquema`,nurse)).detalle.find(x=>x.dosisId===externa.id).estado,'aplicada');
  await c.query("UPDATE usuarios SET estado='inactivo' WHERE id=?",[n.usuario.id]);assert.equal((await req('/pacientes',nurse)).status,401);
  }finally{
  if(server)await new Promise(r=>server.close(r));pool.query=query;pool.getConnection=getConnection;await c.rollback();c.release();

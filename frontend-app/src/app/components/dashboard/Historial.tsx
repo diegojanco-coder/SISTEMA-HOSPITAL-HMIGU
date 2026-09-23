@@ -6,6 +6,8 @@ import type { EsquemaPaciente, HistorialItem, Paciente } from '../../../lib/type
 import { useAuth } from '../../../lib/auth-context';
 import { fechaLocal } from '../../../lib/visita';
 import StatusBadge from '../shared/StatusBadge';
+import HistorialDetalle from '../shared/HistorialDetalle';
+import AntecedenteModal from './AntecedenteModal';
 
 const fontBody = { fontFamily: 'Plus Jakarta Sans, sans-serif' };
 const fontHeading = { fontFamily: 'Outfit, sans-serif' };
@@ -13,6 +15,7 @@ const fontHeading = { fontFamily: 'Outfit, sans-serif' };
 export default function Historial() {
   const { esAdmin } = useAuth();
   const [editando, setEditando] = useState<HistorialItem | null>(null);
+  const [nuevoAntecedente, setNuevoAntecedente] = useState(false);
   const [error, setError] = useState('');
   const solicitud = useRef(0);
   const [busqueda, setBusqueda] = useState('');
@@ -48,6 +51,7 @@ export default function Historial() {
   return (
     <div className="space-y-6">
       {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-red-700">{error}</p>}
+      {nuevoAntecedente && seleccionado && <AntecedenteModal paciente={seleccionado} historial={historial} onClose={() => setNuevoAntecedente(false)} onSaved={() => { setNuevoAntecedente(false); seleccionar(seleccionado); }} />}
       {editando && seleccionado && <CorreccionModal registro={editando} paciente={seleccionado} onClose={() => setEditando(null)} onSaved={() => { setEditando(null); seleccionar(seleccionado); }} />}
       <div>
         <h3 className="text-2xl font-bold text-foreground" style={fontHeading}>Historial de Vacunación</h3>
@@ -112,7 +116,10 @@ export default function Historial() {
               </div>
 
               <div className="bg-card rounded-xl p-6 border border-border">
-                <h5 className="font-bold text-foreground mb-3" style={fontBody}>Historial de Aplicaciones</h5>
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                  <h5 className="font-bold text-foreground" style={fontBody}>Historial de vacunación</h5>
+                  <button type="button" onClick={() => setNuevoAntecedente(true)} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">Registrar antecedente externo</button>
+                </div>
                 <div className="space-y-3">
                   {historial.length === 0 && <p className="text-sm text-muted-foreground">Aún no hay vacunas aplicadas.</p>}
                   {historial.map((h) => (
@@ -120,13 +127,10 @@ export default function Historial() {
                       <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center flex-shrink-0">
                         <Syringe className="w-5 h-5 text-green-600" />
                       </div>
-                      <div className="flex-1">
+                      <div className="min-w-0 flex-1">
                         {esAdmin && <button type="button" onClick={() => setEditando(h)} className="float-right rounded-lg border border-border px-3 py-2 text-sm hover:bg-muted">Corregir registro</button>}
                         <p className="font-bold text-foreground" style={fontBody}>{h.vacuna_nombre} - {h.nombre_dosis}</p>
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground" style={fontBody}>
-                          <span>{h.fecha_aplicacion}</span><span>•</span><span>Lote: {h.lote || '-'}</span><span>•</span><span>{h.aplicado_por || '-'}</span>
-                          {h.observaciones && <><span>•</span><span>{h.observaciones}</span></>}
-                        </div>
+                        <HistorialDetalle registro={h} />
                       </div>
                     </div>
                   ))}
@@ -134,7 +138,7 @@ export default function Historial() {
               </div>
 
               <div className="bg-card rounded-xl p-6 border border-border">
-                <h5 className="font-bold text-foreground mb-3" style={fontBody}>Esquema Completo (PAI Bolivia)</h5>
+                <h5 className="font-bold text-foreground mb-3" style={fontBody}>Calendario configurado</h5>
                 <div className="space-y-2">
                   {esquema.detalle.map((d) => (
                     <div key={d.dosisId} className="flex items-center justify-between p-3 rounded-lg border border-border">
@@ -156,15 +160,18 @@ export default function Historial() {
 }
 
 function CorreccionModal({ registro, paciente, onClose, onSaved }: { registro: HistorialItem; paciente: Paciente; onClose: () => void; onSaved: () => void }) {
-  const [form, setForm] = useState({ fechaAplicacion: registro.fecha_aplicacion.slice(0, 10), establecimiento: registro.establecimiento || '', observaciones: registro.observaciones || '' });
+  const externo = registro.origen === 'externo';
+  const [form, setForm] = useState({ fechaAplicacion: registro.fecha_aplicacion.slice(0, 10), establecimiento: registro.establecimiento || '', observaciones: registro.observaciones || '', documentoReferencia: registro.documento_referencia || '' });
   const [guardando, setGuardando] = useState(false);
   const enviando = useRef(false);
   const [error, setError] = useState('');
   async function guardar(e: React.FormEvent) {
     e.preventDefault();
     if (enviando.current) return;
+    if (!form.establecimiento.trim() || (externo && !form.documentoReferencia.trim())) { setError('Completa el establecimiento y el documento de referencia del antecedente.'); return; }
     enviando.current = true; setGuardando(true); setError('');
-    try { await corregirAplicacion(registro.id, form); }
+    const { documentoReferencia, ...datos } = form;
+    try { await corregirAplicacion(registro.id, { ...datos, establecimiento: datos.establecimiento.trim(), observaciones: datos.observaciones.trim(), ...(externo ? { documentoReferencia: documentoReferencia.trim() } : {}) }); }
     catch (err: any) { setError(err?.response?.data?.message || 'No se pudo confirmar la corrección. Revisa el historial antes de reintentar.'); enviando.current = false; setGuardando(false); return; }
     onSaved();
   }
@@ -173,11 +180,12 @@ function CorreccionModal({ registro, paciente, onClose, onSaved }: { registro: H
     <section role="dialog" aria-modal="true" aria-labelledby="corregir-title" className="w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-xl bg-card p-6 text-foreground">
       <h3 id="corregir-title" className="text-xl font-bold">Corregir registro de vacunación</h3>
       <p className="mt-2 text-sm">{paciente.nombres} {paciente.apellidos} · {registro.vacuna_nombre} · {registro.nombre_dosis}</p>
-      <p className="mt-2 text-sm text-muted-foreground">La corrección quedará registrada en la auditoría.</p>
+      <p className="mt-2 text-sm text-muted-foreground">{externo ? 'Estás corrigiendo un antecedente externo documentado. ' : ''}La corrección quedará registrada en la auditoría.</p>
       <form onSubmit={guardar} className="mt-4 space-y-4">
         {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-red-700">{error}</p>}
         <label className="block">Fecha de aplicación<input className={input} required type="date" min={paciente.fecha_nacimiento.slice(0, 10)} max={fechaLocal()} value={form.fechaAplicacion} onChange={e => setForm({ ...form, fechaAplicacion: e.target.value })} /></label>
         <label className="block">Establecimiento<input className={input} required maxLength={150} value={form.establecimiento} onChange={e => setForm({ ...form, establecimiento: e.target.value })} /></label>
+        {externo && <label className="block">Documento de referencia<input className={input} required maxLength={200} value={form.documentoReferencia} onChange={e => setForm({ ...form, documentoReferencia: e.target.value })} /></label>}
         <label className="block">Observaciones<textarea className={input} maxLength={255} value={form.observaciones} onChange={e => setForm({ ...form, observaciones: e.target.value })} /></label>
         <div className="flex justify-end gap-3"><button type="button" disabled={guardando} onClick={onClose} className="rounded-lg border border-border px-4 py-3">Cancelar</button><button type="submit" disabled={guardando} className="rounded-lg bg-primary px-4 py-3 text-primary-foreground disabled:opacity-50">{guardando ? 'Guardando...' : 'Guardar corrección'}</button></div>
       </form>

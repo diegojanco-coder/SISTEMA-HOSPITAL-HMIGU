@@ -7,15 +7,16 @@ const backupService = require('../services/backup.service');
  * (por defecto todos los días a las 02:00 am).
  */
 function programarJobBackup() {
-  cron.schedule(backup.cron, async () => {
+  const task=cron.schedule(backup.cron, async () => {
     try {
       const resultado = await backupService.runBackup();
       console.log(`[JOB backup] Respaldo generado: ${resultado.archivo}`);
     } catch (error) {
       console.error('[JOB backup] Error al generar respaldo:', error.message);
     }
-  });
+  },{timezone:require('../config/env').timezone});
   console.log(`[JOB backup] Programado con cron "${backup.cron}"`);
+  return task;
 }
 
 module.exports = programarJobBackup;

@@ -3,11 +3,12 @@ const fs=require('node:fs');
 const {spawn}=require('node:child_process');
 const {pipeline}=require('node:stream/promises');
 const {db,backup}=require('../config/env');
-async function runBackup(){
- await fs.promises.mkdir(backup.dir,{recursive:true});
- const nombre=`backup_${db.database}_${new Date().toISOString().replace(/[:.]/g,'-')}.sql`;
- const destino=path.join(backup.dir,nombre), temporal=destino+'.partial';
- const args=[`--host=${db.host}`,`--port=${db.port}`,`--user=${db.user}`,'--routines','--events','--single-transaction','--no-tablespaces',db.database];
+async function runBackup({database=db.database,dir=backup.dir}={}){
+ if(!/^[A-Za-z0-9_]+$/.test(database))throw new Error('Nombre de base inválido para respaldo.');
+ await fs.promises.mkdir(dir,{recursive:true});
+ const nombre=`backup_${database}_${new Date().toISOString().replace(/[:.]/g,'-')}.sql`;
+ const destino=path.join(dir,nombre), temporal=destino+'.partial';
+ const args=[`--host=${db.host}`,`--port=${db.port}`,`--user=${db.user}`,'--routines','--events','--single-transaction','--no-tablespaces','--set-gtid-purged=OFF',database];
  const child=spawn(backup.mysqldumpPath,args,{windowsHide:true,env:{...process.env,MYSQL_PWD:db.password}});
  child.stderr.resume();
  const completion=new Promise((resolve,reject)=>{child.once('error',()=>reject(new Error('No se pudo ejecutar mysqldump. Revise MYSQLDUMP_PATH.')));child.once('close',code=>code===0?resolve():reject(new Error(`Falló el respaldo (código ${code}). Revise permisos y conexión MySQL.`)));});

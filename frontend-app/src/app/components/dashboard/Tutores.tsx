@@ -130,6 +130,7 @@ function TutorModal({ tutor, onClose, onSaved }: { tutor: Tutor | null; onClose:
     parentesco: tutor?.parentesco || 'madre',
     telefono: tutor?.telefono || '',
     email: tutor?.email || '',
+    guardarPrerregistro: Boolean(tutor && !tutor.email),
     direccion: tutor?.direccion || '',
   });
   const [guardando, setGuardando] = useState(false);
@@ -138,7 +139,7 @@ function TutorModal({ tutor, onClose, onSaved }: { tutor: Tutor | null; onClose:
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const validacion = validateForm(form, { nombres: LIMITES_TEXTO.tutor, apellidos: LIMITES_TEXTO.tutor, carnetIdentidad: LIMITES_TEXTO.ci, telefono: LIMITES_TEXTO.telefono, email: LIMITES_TEXTO.email }, { nombres: 'nombre', apellidos: 'apellido', carnetIdentidad: 'CI', telefono: 'teléfono', email: 'email' });
-    const errorFormato = errorNombre(form.nombres, 'nombre') || errorNombre(form.apellidos, 'apellido') || errorCI(form.carnetIdentidad, true) || errorTelefono(form.telefono, true) || errorEmail(form.email, true);
+    const errorFormato = errorNombre(form.nombres, 'nombre') || errorNombre(form.apellidos, 'apellido') || errorCI(form.carnetIdentidad) || errorTelefono(form.telefono, true) || errorEmail(form.email, !form.guardarPrerregistro);
     if (validacion || errorFormato) { setErrorMsg(validacion || errorFormato); return; }
     setGuardando(true);
     setErrorMsg('');
@@ -173,10 +174,10 @@ function TutorModal({ tutor, onClose, onSaved }: { tutor: Tutor | null; onClose:
             <div><label className={labelClass} style={fontBody}>Apellidos *</label>
               <input required maxLength={LIMITES_TEXTO.tutor} value={form.apellidos} onChange={(e) => setForm({ ...form, apellidos: normalizarEspacios(e.target.value) })} className={`${inputClass} ${errorLongitud(form.apellidos, LIMITES_TEXTO.tutor, 'apellido') ? 'border-red-500 ring-2 ring-red-500/20' : ''}`} style={fontBody} />
               {errorLongitud(form.apellidos, LIMITES_TEXTO.tutor, 'apellido') && <p className="text-xs text-red-600">{errorLongitud(form.apellidos, LIMITES_TEXTO.tutor, 'apellido')}</p>}</div>
-            <div><label className={labelClass} style={fontBody}>Carnet de Identidad *</label>
-              <input required maxLength={LIMITES_TEXTO.ci} inputMode="numeric" value={form.carnetIdentidad} onChange={(e) => setForm({ ...form, carnetIdentidad: normalizarEspacios(e.target.value) })} className={`${inputClass} ${errorLongitud(form.carnetIdentidad, LIMITES_TEXTO.ci, 'CI') || errorNumerico(form.carnetIdentidad, 'CI', true) ? 'border-red-500 ring-2 ring-red-500/20' : ''}`} style={fontBody} />
+            <div><label className={labelClass} style={fontBody}>Carnet de Identidad (opcional)</label>
+              <input maxLength={LIMITES_TEXTO.ci} value={form.carnetIdentidad} onChange={(e) => setForm({ ...form, carnetIdentidad: normalizarEspacios(e.target.value) })} className={`${inputClass} ${errorLongitud(form.carnetIdentidad, LIMITES_TEXTO.ci, 'CI') || errorCI(form.carnetIdentidad) ? 'border-red-500 ring-2 ring-red-500/20' : ''}`} style={fontBody} />
               {errorLongitud(form.carnetIdentidad, LIMITES_TEXTO.ci, 'CI') && <p className="text-xs text-red-600">{errorLongitud(form.carnetIdentidad, LIMITES_TEXTO.ci, 'CI')}</p>}
-              {errorCI(form.carnetIdentidad, true) && <p className="text-xs text-red-600">{errorCI(form.carnetIdentidad, true)}</p>}</div>
+              {errorCI(form.carnetIdentidad) && <p className="text-xs text-red-600">{errorCI(form.carnetIdentidad)}</p>}</div>
             <div><label className={labelClass} style={fontBody}>Parentesco</label>
               <select value={form.parentesco} onChange={(e) => setForm({ ...form, parentesco: e.target.value as any })} className={inputClass} style={fontBody}>
                 <option value="madre">Madre</option><option value="padre">Padre</option>
@@ -187,12 +188,14 @@ function TutorModal({ tutor, onClose, onSaved }: { tutor: Tutor | null; onClose:
               {errorLongitud(form.telefono, LIMITES_TEXTO.telefono, 'teléfono') && <p className="text-xs text-red-600">{errorLongitud(form.telefono, LIMITES_TEXTO.telefono, 'teléfono')}</p>}
               {errorTelefono(form.telefono, true) && <p className="text-xs text-red-600">{errorTelefono(form.telefono, true)}</p>}</div>
             <div><label className={labelClass} style={fontBody}>Correo Electrónico</label>
-              <input maxLength={LIMITES_TEXTO.email} value={form.email} onChange={(e) => setForm({ ...form, email: normalizarEspacios(e.target.value) })} className={`${inputClass} ${errorLongitud(form.email, LIMITES_TEXTO.email, 'email') ? 'border-red-500 ring-2 ring-red-500/20' : ''}`} style={fontBody} />
+              <input disabled={Boolean(form.guardarPrerregistro)} maxLength={LIMITES_TEXTO.email} value={form.email} onChange={(e) => setForm({ ...form, email: normalizarEspacios(e.target.value) })} className={`${inputClass} ${errorLongitud(form.email, LIMITES_TEXTO.email, 'email') ? 'border-red-500 ring-2 ring-red-500/20' : ''}`} style={fontBody} />
               {errorLongitud(form.email, LIMITES_TEXTO.email, 'email') && <p className="text-xs text-red-600">{errorLongitud(form.email, LIMITES_TEXTO.email, 'email')}</p>}</div>
-              {errorEmail(form.email, true) && <p className="text-xs text-red-600">{errorEmail(form.email, true)}</p>}
+              {errorEmail(form.email, !form.guardarPrerregistro) && <p className="text-xs text-red-600">{errorEmail(form.email, !form.guardarPrerregistro)}</p>}
             <div className="md:col-span-2"><label className={labelClass} style={fontBody}>Dirección</label>
               <input value={form.direccion} onChange={(e) => setForm({ ...form, direccion: e.target.value })} className={inputClass} style={fontBody} /></div>
           </div>
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={Boolean(form.guardarPrerregistro)} onChange={e => setForm({ ...form, guardarPrerregistro:e.target.checked, email:e.target.checked ? "" : form.email })} />No dispone de correo: contacto pendiente</label>
+          <p className="text-xs text-muted-foreground">Los cambios de contacto se comparten con sus pacientes vinculados. Completa después el prerregistro de cada paciente desde Editar Información.</p>
           <div className="flex items-center justify-end gap-3 border-t border-border pt-6">
             <button type="button" onClick={onClose} className="px-6 py-3 rounded-lg border border-border text-foreground font-semibold hover:bg-muted transition-colors">Cancelar</button>
             <button type="submit" disabled={guardando} className="px-6 py-3 rounded-lg bg-primary text-primary-foreground text-white font-semibold hover:opacity-90 transition-transform shadow-lg disabled:opacity-60">

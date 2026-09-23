@@ -2,26 +2,22 @@ import { useCallback, useEffect, useState } from 'react';
 import { Plus, Search, X, Users, Syringe, AlertCircle } from 'lucide-react';
 import {
   listarPacientes,
-  crearPaciente,
-  actualizarPaciente,
-  eliminarPaciente,
   obtenerPaciente,
   obtenerEsquemaPaciente,
   descargarCarnetPDF,
-  type DatosPaciente,
 } from '../../../services/pacientes.service';
-import { listarTutores } from '../../../services/tutores.service';
 import { listarHistorialPorPaciente } from '../../../services/historial.service';
+import HistorialDetalle from '../shared/HistorialDetalle';
 import AddVaccineModal from './AddVaccineModal';
+import PatientFormModal from './PatientFormModal';
 export { default as AddVaccineModal } from './AddVaccineModal';
 import { useAuth } from '../../../lib/auth-context';
-import type { EsquemaPaciente, HistorialItem, Paciente, Tutor } from '../../../lib/types';
-import { errorCI, errorEmail, errorFechaNacimiento, errorLongitud, errorNombre, errorNumerico, errorTelefono, LIMITES_TEXTO, normalizarEspacios, validateForm } from '../../../lib/validaciones';
+import type { EsquemaPaciente, HistorialItem, Paciente } from '../../../lib/types';
+import { errorLongitud, normalizarEspacios } from '../../../lib/validaciones';
 import StatusBadge from '../shared/StatusBadge';
 
 const inputClass =
   'w-full px-4 py-3 rounded-lg border border-border focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 outline-none';
-const labelClass = 'block text-sm font-semibold text-foreground mb-2';
 const fontBody = { fontFamily: 'Plus Jakarta Sans, sans-serif' };
 const fontHeading = { fontFamily: 'Outfit, sans-serif' };
 
@@ -149,12 +145,14 @@ export default function Pacientes() {
                       <div>
                         <p className="font-semibold text-foreground" style={fontBody}>{p.nombres} {p.apellidos}</p>
                         <p className="text-sm text-muted-foreground" style={fontBody}>ID: {p.codigo_paciente}</p>
+                        {!!p.registro_pendiente && <p className="text-xs text-muted-foreground">Prerregistro pendiente</p>}
+                        {!!p.identidad_provisional && <p className="text-xs text-muted-foreground">Identidad provisional</p>}
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 text-foreground" style={fontBody}>{p.edad_formateada}</td>
                   <td className="px-6 py-4 text-foreground" style={fontBody}>{p.sexo === 'M' ? 'Masculino' : 'Femenino'}</td>
-                  <td className="px-6 py-4 text-foreground" style={fontBody}>{p.telefono_contacto || '-'}</td>
+                  <td className="px-6 py-4 text-foreground" style={fontBody}>{p.contacto_principal?.telefono || p.telefono_contacto || '-'}</td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
                       <button onClick={() => handleViewPatient(p)} className="px-4 py-2 rounded-lg bg-cyan-500 text-white text-sm font-medium hover:bg-cyan-600 transition-colors">Ver</button>
@@ -182,7 +180,9 @@ export default function Pacientes() {
         <PatientFormModal
           modo="crear"
           onClose={() => setShowAddPatient(false)}
-          onSaved={() => { setShowAddPatient(false); cargar(); }}
+          onSaved={() => { cargar(); }}
+          onVerFicha={(p) => { setShowAddPatient(false); handleViewPatient(p); }}
+          onIrVacunacion={(p) => { setShowAddPatient(false); handleAddVaccineToPatient(p); }}
         />
       )}
 
@@ -191,7 +191,9 @@ export default function Pacientes() {
           modo="editar"
           paciente={selectedPatient}
           onClose={() => setShowEditPatient(false)}
-          onSaved={() => { setShowEditPatient(false); cargar(); }}
+          onSaved={(p) => { setSelectedPatient(p); cargar(); }}
+          onVerFicha={(p) => { setShowEditPatient(false); handleViewPatient(p); }}
+          onIrVacunacion={(p) => { setShowEditPatient(false); handleAddVaccineToPatient(p); }}
         />
       )}
 
@@ -212,220 +214,6 @@ export default function Pacientes() {
           onSaved={() => { setShowAddVaccine(false); cargar(); }}
         />
       )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------
-// Modal: Crear / Editar paciente (incluye datos del tutor al crear)
-// ---------------------------------------------------------------------
-function PatientFormModal({
-  modo, paciente, onClose, onSaved,
-}: { modo: 'crear' | 'editar'; paciente?: Paciente; onClose: () => void; onSaved: () => void }) {
-  const [guardando, setGuardando] = useState(false);
-  const [errorMsg, setErrorMsg] = useState('');
-  const [form, setForm] = useState({
-    nombres: paciente?.nombres || '',
-    apellidos: paciente?.apellidos || '',
-    carnetIdentidad: paciente?.carnet_identidad || '',
-    fechaNacimiento: paciente?.fecha_nacimiento || '',
-    sexo: (paciente?.sexo || 'F') as 'M' | 'F',
-    direccion: paciente?.direccion || '',
-    departamento: paciente?.departamento || '',
-    telefonoContacto: paciente?.telefono_contacto || '',
-    email: paciente?.email || '',
-    esDependiente: Boolean(paciente?.es_dependiente),
-  });
-  const [tutor, setTutor] = useState({
-    nombres: '', apellidos: '', carnetIdentidad: '', parentesco: 'madre' as const, telefono: '', email: '',
-  });
-
-  const [tutores, setTutores] = useState<Tutor[]>([]);
-  const [tutorId, setTutorId] = useState('');
-  const [vinculados, setVinculados] = useState<Tutor[]>([]);
-  const [cargandoTutores, setCargandoTutores] = useState(true);
-  const [errorTutores, setErrorTutores] = useState('');
-  useEffect(() => {
-    let activo = true;
-    async function cargar() {
-      try {
-        const lista: Tutor[] = [];
-        let page = 1;
-        while (true) {
-          const result = await listarTutores({ page, limit: 100 });
-          lista.push(...result.rows);
-          if (lista.length >= result.total || !result.rows.length) break;
-          page++;
-        }
-        const detalle = paciente ? await obtenerPaciente(paciente.id) : null;
-        if (activo) { setTutores(lista); setVinculados((detalle?.tutores || []).filter(t => t.estado === 'activo')); }
-      } catch { if (activo) setErrorTutores('No se pudieron cargar los tutores. Cierra el formulario e intenta nuevamente.'); }
-      finally { if (activo) setCargandoTutores(false); }
-    }
-    cargar();
-    return () => { activo = false; };
-  }, [paciente?.id]);
-  const hoy = new Date();
-  const nacimiento = new Date(`${form.fechaNacimiento}T00:00:00`);
-  const edad = hoy.getFullYear() - nacimiento.getFullYear() - (hoy.getMonth() < nacimiento.getMonth() || (hoy.getMonth() === nacimiento.getMonth() && hoy.getDate() < nacimiento.getDate()) ? 1 : 0);
-  const requiereTutor = form.esDependiente || edad < 18;
-  const tutorNuevo = !tutorId && Boolean(tutor.nombres || tutor.apellidos || tutor.carnetIdentidad || tutor.telefono || tutor.email);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const validacion = validateForm(form, { nombres: LIMITES_TEXTO.nombre, apellidos: LIMITES_TEXTO.apellido, carnetIdentidad: LIMITES_TEXTO.ci, telefonoContacto: LIMITES_TEXTO.telefono }, { nombres: 'nombre', apellidos: 'apellido', carnetIdentidad: 'CI', telefonoContacto: 'teléfono' });
-    const errorFormato = errorNombre(form.nombres, 'nombre') || errorNombre(form.apellidos, 'apellido') || errorCI(form.carnetIdentidad) || errorTelefono(form.telefonoContacto) || errorEmail(form.email) || errorFechaNacimiento(form.fechaNacimiento);
-    if (validacion || errorFormato) { setErrorMsg(validacion || errorFormato); return; }
-    if (cargandoTutores || errorTutores) { setErrorMsg(errorTutores || 'Espera a que se carguen los tutores'); return; }
-    if (requiereTutor && !tutorId && !tutorNuevo && !vinculados.length) { setErrorMsg('Los menores y pacientes dependientes necesitan un tutor'); return; }
-    if (tutorNuevo) {
-      const errorTutor = !tutor.nombres || !tutor.apellidos || !tutor.carnetIdentidad || !tutor.telefono || !tutor.email
-        ? 'Completa el nombre, apellido, CI, teléfono y correo del tutor'
-        : errorNombre(tutor.nombres, 'nombre del tutor') || errorNombre(tutor.apellidos, 'apellido del tutor') || errorCI(tutor.carnetIdentidad) || errorTelefono(tutor.telefono) || errorEmail(tutor.email);
-      if (errorTutor) { setErrorMsg(errorTutor); return; }
-    }
-    setGuardando(true);
-    setErrorMsg('');
-    try {
-      const payload: DatosPaciente = { ...form, ...(tutorId ? { tutorId: Number(tutorId) } : tutorNuevo ? { tutor } : {}) };
-      if (modo === 'crear') {
-        await crearPaciente(payload);
-      } else if (paciente) {
-        await actualizarPaciente(paciente.id, payload);
-      }
-      onSaved();
-    } catch (err: any) {
-      setErrorMsg(err?.response?.data?.message || 'No se pudo guardar el paciente');
-    } finally {
-      setGuardando(false);
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-card rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-card border-b border-border px-6 py-4 flex items-center justify-between rounded-t-2xl">
-          <h3 className="text-2xl font-bold text-foreground" style={fontHeading}>
-            {modo === 'crear' ? 'Registrar Nuevo Paciente' : 'Editar Paciente'}
-          </h3>
-          <button onClick={onClose} className="p-2 rounded-lg hover:bg-muted transition-colors">
-            <X className="w-6 h-6 text-muted-foreground" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {errorMsg && <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">{errorMsg}</div>}
-
-          <div>
-            <h4 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2" style={fontHeading}>
-              <Users className="w-5 h-5 text-cyan-600" /> Datos del Paciente
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className={labelClass} style={fontBody}>Nombres *</label>
-                <input required maxLength={LIMITES_TEXTO.nombre} value={form.nombres} onChange={(e) => setForm({ ...form, nombres: normalizarEspacios(e.target.value) })} className={`${inputClass} ${errorLongitud(form.nombres, LIMITES_TEXTO.nombre, 'nombre') ? 'border-red-500 ring-2 ring-red-500/20' : ''}`} style={fontBody} />
-                {errorLongitud(form.nombres, LIMITES_TEXTO.nombre, 'nombre') && <p className="text-xs text-red-600 mt-1">{errorLongitud(form.nombres, LIMITES_TEXTO.nombre, 'nombre')}</p>}
-              </div>
-              <div>
-                <label className={labelClass} style={fontBody}>Apellidos *</label>
-                <input required maxLength={LIMITES_TEXTO.apellido} value={form.apellidos} onChange={(e) => setForm({ ...form, apellidos: normalizarEspacios(e.target.value) })} className={`${inputClass} ${errorLongitud(form.apellidos, LIMITES_TEXTO.apellido, 'apellido') ? 'border-red-500 ring-2 ring-red-500/20' : ''}`} style={fontBody} />
-                {errorLongitud(form.apellidos, LIMITES_TEXTO.apellido, 'apellido') && <p className="text-xs text-red-600 mt-1">{errorLongitud(form.apellidos, LIMITES_TEXTO.apellido, 'apellido')}</p>}
-              </div>
-              <div>
-                <label className={labelClass} style={fontBody}>Carnet de Identidad</label>
-                <input maxLength={LIMITES_TEXTO.ci} value={form.carnetIdentidad} onChange={(e) => setForm({ ...form, carnetIdentidad: normalizarEspacios(e.target.value) })} className={`${inputClass} ${errorLongitud(form.carnetIdentidad, LIMITES_TEXTO.ci, 'CI') || errorNumerico(form.carnetIdentidad, 'CI') ? 'border-red-500 ring-2 ring-red-500/20' : ''}`} style={fontBody} />
-                {errorLongitud(form.carnetIdentidad, LIMITES_TEXTO.ci, 'CI') && <p className="text-xs text-red-600 mt-1">{errorLongitud(form.carnetIdentidad, LIMITES_TEXTO.ci, 'CI')}</p>}
-                {errorCI(form.carnetIdentidad) && <p className="text-xs text-red-600 mt-1">{errorCI(form.carnetIdentidad)}</p>}
-              </div>
-              <div>
-                <label className={labelClass} style={fontBody}>Fecha de Nacimiento *</label>
-                <input required type="date" value={form.fechaNacimiento} onChange={(e) => setForm({ ...form, fechaNacimiento: e.target.value })} className={inputClass} style={fontBody} />
-                {errorFechaNacimiento(form.fechaNacimiento) && <p className="text-xs text-red-600 mt-1">{errorFechaNacimiento(form.fechaNacimiento)}</p>}
-              </div>
-              <div>
-                <label className={labelClass} style={fontBody}>Sexo *</label>
-                <select required value={form.sexo} onChange={(e) => setForm({ ...form, sexo: e.target.value as 'M' | 'F' })} className={inputClass} style={fontBody}>
-                  <option value="F">Femenino</option>
-                  <option value="M">Masculino</option>
-                </select>
-              </div>
-              <div>
-                <label className={labelClass} style={fontBody}>Teléfono de Contacto</label>
-                <input maxLength={LIMITES_TEXTO.telefono} inputMode="numeric" value={form.telefonoContacto} onChange={(e) => setForm({ ...form, telefonoContacto: normalizarEspacios(e.target.value) })} className={`${inputClass} ${errorLongitud(form.telefonoContacto, LIMITES_TEXTO.telefono, 'teléfono') || errorNumerico(form.telefonoContacto, 'teléfono de contacto') ? 'border-red-500 ring-2 ring-red-500/20' : ''}`} style={fontBody} />
-                {errorLongitud(form.telefonoContacto, LIMITES_TEXTO.telefono, 'teléfono') && <p className="text-xs text-red-600 mt-1">{errorLongitud(form.telefonoContacto, LIMITES_TEXTO.telefono, 'teléfono')}</p>}
-                {errorTelefono(form.telefonoContacto) && <p className="text-xs text-red-600 mt-1">{errorTelefono(form.telefonoContacto)}</p>}
-              </div>
-              <div>
-                <label className={labelClass} style={fontBody}>Correo Electrónico</label>
-                <input type="email" maxLength={LIMITES_TEXTO.email} value={form.email} onChange={(e) => setForm({ ...form, email: normalizarEspacios(e.target.value) })} className={`${inputClass} ${errorEmail(form.email) ? 'border-red-500 ring-2 ring-red-500/20' : ''}`} style={fontBody} />
-                {errorEmail(form.email) && <p className="text-xs text-red-600 mt-1">{errorEmail(form.email)}</p>}
-              </div>
-              <div className="md:col-span-2">
-                <label className={labelClass} style={fontBody}>Dirección</label>
-                <input value={form.direccion} onChange={(e) => setForm({ ...form, direccion: normalizarEspacios(e.target.value) })} className={inputClass} style={fontBody} />
-              </div>
-              <label className="block">Departamento de residencia<select className={inputClass} value={form.departamento} onChange={e=>setForm({...form,departamento:e.target.value})}><option value="">Sin confirmar</option>{['Beni','Chuquisaca','Cochabamba','La Paz','Oruro','Pando','Potosí','Santa Cruz','Tarija'].map(d=><option key={d}>{d}</option>)}</select></label>
-            </div>
-          </div>
-
-          <label className="flex items-center gap-3 text-sm">
-            <input type="checkbox" checked={form.esDependiente} onChange={e => setForm({ ...form, esDependiente: e.target.checked })} />
-            Paciente dependiente: requiere un tutor o responsable
-          </label>
-          {(
-            <div className="border-t border-border pt-6">
-              <h4 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2" style={fontHeading}>
-                <Users className="w-5 h-5 text-purple-600" /> Datos del Tutor/Responsable {requiereTutor ? '(obligatorio)' : '(opcional)'}
-              </h4>
-              {vinculados.length > 0 && <p className="mb-3 text-sm">Tutor vinculado: {vinculados.map(t => `${t.nombres} ${t.apellidos}`).join(', ')}</p>}
-              {errorTutores && <p role="alert" className="text-red-600 mb-3">{errorTutores}</p>}
-              <label className={labelClass}>Tutor existente</label>
-              <select value={tutorId} onChange={e => setTutorId(e.target.value)} className={`${inputClass} mb-4`} disabled={cargandoTutores}>
-                <option value="">{cargandoTutores ? 'Cargando tutores...' : 'Registrar uno nuevo o conservar el tutor actual'}</option>
-                {tutores.map(t => <option key={t.id} value={t.id}>{t.nombres} {t.apellidos} — CI {t.carnet_identidad}</option>)}
-              </select>
-              <fieldset disabled={Boolean(tutorId)} className="grid grid-cols-1 md:grid-cols-2 gap-4 disabled:opacity-50">
-                <div>
-                  <label className={labelClass} style={fontBody}>Nombres del Tutor</label>
-                  <input maxLength={LIMITES_TEXTO.tutor} value={tutor.nombres} onChange={(e) => setTutor({ ...tutor, nombres: normalizarEspacios(e.target.value) })} className={inputClass} style={fontBody} />
-                </div>
-                <div>
-                  <label className={labelClass} style={fontBody}>Apellidos del Tutor</label>
-                  <input maxLength={LIMITES_TEXTO.tutor} value={tutor.apellidos} onChange={(e) => setTutor({ ...tutor, apellidos: normalizarEspacios(e.target.value) })} className={inputClass} style={fontBody} />
-                </div>
-                <div>
-                  <label className={labelClass} style={fontBody}>CI del Tutor</label>
-                  <input maxLength={LIMITES_TEXTO.ci} value={tutor.carnetIdentidad} onChange={(e) => setTutor({ ...tutor, carnetIdentidad: e.target.value })} className={inputClass} style={fontBody} />
-                </div>
-                <div>
-                  <label className={labelClass} style={fontBody}>Parentesco</label>
-                  <select value={tutor.parentesco} onChange={(e) => setTutor({ ...tutor, parentesco: e.target.value as any })} className={inputClass} style={fontBody}>
-                    <option value="madre">Madre</option>
-                    <option value="padre">Padre</option>
-                    <option value="tutor_legal">Tutor legal</option>
-                    <option value="otro">Otro</option>
-                  </select>
-                </div>
-                <div>
-                  <label className={labelClass} style={fontBody}>Teléfono</label>
-                  <input maxLength={LIMITES_TEXTO.telefono} value={tutor.telefono} onChange={(e) => setTutor({ ...tutor, telefono: e.target.value })} className={inputClass} style={fontBody} />
-                </div>
-                <div>
-                  <label className={labelClass} style={fontBody}>Correo Electrónico</label>
-                  <input maxLength={LIMITES_TEXTO.email} value={tutor.email} onChange={(e) => setTutor({ ...tutor, email: e.target.value })} className={inputClass} style={fontBody} />
-                </div>
-              </fieldset>
-            </div>
-          )}
-
-          <div className="flex items-center justify-end gap-3 border-t border-border pt-6">
-            <button type="button" onClick={onClose} className="px-6 py-3 rounded-lg border border-border text-foreground font-semibold hover:bg-muted transition-colors">Cancelar</button>
-            <button type="submit" disabled={guardando || cargandoTutores || Boolean(errorTutores)} className="px-6 py-3 rounded-lg bg-primary text-primary-foreground text-white font-semibold hover:opacity-90 transition-transform shadow-lg disabled:opacity-60">
-              {guardando ? 'Guardando...' : 'Guardar'}
-            </button>
-          </div>
-        </form>
-      </div>
     </div>
   );
 }
@@ -484,6 +272,12 @@ export function PatientProfileModal({
           {errorCarga && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
             <p>{errorCarga}</p>
             <button type="button" onClick={() => setReintento(n => n + 1)} className="mt-2 underline">Reintentar carga</button>
+          </div>}
+          {!cargando && !errorCarga && <div className="rounded-lg border border-border bg-muted p-4 text-sm">
+            {!!detallePaciente.registro_pendiente && <p className="font-semibold">Prerregistro pendiente de completar</p>}
+            {!!detallePaciente.identidad_provisional && <p>Identidad provisional: confirmar nombre desde Editar Información.</p>}
+            <p>Contacto principal: {detallePaciente.contacto_principal?.nombre || "Sin confirmar"}</p>
+            <p>Correo: {detallePaciente.contacto_principal?.email || "Pendiente"} · Teléfono: {detallePaciente.contacto_principal?.telefono || "Pendiente"}</p>
           </div>}
           {!cargando && !errorCarga && esquema && (
             <>
@@ -546,14 +340,12 @@ export function PatientProfileModal({
                       <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center flex-shrink-0">
                         <Syringe className="w-5 h-5 text-green-600" />
                       </div>
-                      <div className="flex-1">
-                        <div className="flex items-start justify-between mb-1">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-start justify-between gap-2 mb-1">
                           <p className="font-bold text-foreground" style={fontBody}>{h.vacuna_nombre} - {h.nombre_dosis}</p>
                           <StatusBadge estado="aplicada" />
                         </div>
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground" style={fontBody}>
-                          <span>{h.fecha_aplicacion}</span><span>•</span><span>Lote: {h.lote || '-'}</span><span>•</span><span>{h.aplicado_por || '-'}</span>
-                        </div>
+                        <HistorialDetalle registro={h} />
                       </div>
                     </div>
                   ))}
@@ -565,7 +357,7 @@ export function PatientProfileModal({
                   <AlertCircle className="w-5 h-5 text-yellow-600" /> Vacunas Pendientes según Edad
                 </h4>
                 <div className="space-y-3">
-                  {pendientes.length === 0 && <p className="text-sm text-muted-foreground" style={fontBody}>El paciente está al día con su esquema de vacunación.</p>}
+                  {pendientes.length === 0 && <p className="text-sm text-muted-foreground" style={fontBody}>{esquema.advertencia || esquema.estadoGeneral === 'revision' ? 'No hay dosis pendientes programadas. El esquema requiere revisión antes de confirmar que está completo.' : 'El paciente está al día con su esquema de vacunación.'}</p>}
                   {pendientes.map((d) => (
                     <div key={d.dosisId} className="flex items-center justify-between p-4 rounded-lg bg-card border border-yellow-300">
                       <div>

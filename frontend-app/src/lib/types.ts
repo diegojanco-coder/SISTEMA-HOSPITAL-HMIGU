@@ -24,7 +24,7 @@ export interface Tutor {
   id: number;
   nombres: string;
   apellidos: string;
-  carnet_identidad: string;
+  carnet_identidad: string | null;
   parentesco: 'padre' | 'madre' | 'tutor_legal' | 'otro';
   telefono: string | null;
   email: string | null;
@@ -34,6 +34,10 @@ export interface Tutor {
 }
 
 export interface Paciente {
+  identidad_provisional?: number | boolean;
+  registro_pendiente?: number | boolean;
+  contacto_alertas?: 'paciente' | 'tutor';
+  contacto_principal?: { nombre: string; email: string | null; telefono: string | null; origen: 'paciente' | 'tutor' } | null;
   departamento?: string | null;
   es_dependiente?: number;
   email?: string | null;
@@ -56,7 +60,8 @@ export interface Paciente {
 export interface ReglaCalendario {
  tipo: 'regular' | 'campana'; fuente: string; habilitada?: boolean; version?: number;
  minMeses: number; maxMesesExclusivo?: number | null; inicio?: string; fin?: string; territorio?: string;
- programacion?: {base: 'nacimiento' | 'contacto' | 'dosis_previa'; dosisId?: number; valor?: number; unidad?: string};
+ edadesPorSexo?: Partial<Record<'F' | 'M', {minMeses: number; maxMesesExclusivo: number | null}>>;
+ programacion?: {base: 'nacimiento' | 'contacto' | 'dosis_previa'; dosisId?: number; valor?: number; unidad?: string; permitirOtraVacuna?: boolean};
 }
 export interface Dosis {
  regla_calendario?: ReglaCalendario | null;
@@ -121,6 +126,11 @@ export interface HistorialItem {
   vacuna_nombre: string;
   nombre_corto: string;
   aplicado_por: string | null;
+  origen: 'local' | 'externo';
+  documento_referencia: string | null;
+  registrado_por: string | null;
+  lote_vacuna_id?: number | null;
+  cita_id?: number | null;
 }
 
 export interface Alerta {

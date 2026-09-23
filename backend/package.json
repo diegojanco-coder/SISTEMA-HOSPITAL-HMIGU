@@ -15,7 +15,9 @@
     "test": "node --test --test-concurrency=1 test/*.test.js",
     "verificar": "node src/database/checkInstallation.js",
     "catalogo:base": "node src/database/loadVerifiedCatalog.js",
-    "correo:prueba": "node src/database/testEmail.js"
+    "correo:prueba": "node src/database/testEmail.js",
+    "backup:verificar": "node src/database/verifyBackup.js",
+    "test:e2e": "node test/flujo-browser.cjs"
   },
   "keywords": [
     "vacunacion",

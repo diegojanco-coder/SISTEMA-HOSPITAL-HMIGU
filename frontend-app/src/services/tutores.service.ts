@@ -4,7 +4,8 @@ import type { Paginado, Tutor } from '../lib/types';
 export interface DatosTutor {
   nombres: string;
   apellidos: string;
-  carnetIdentidad: string;
+  carnetIdentidad?: string;
+  guardarPrerregistro?: boolean;
   parentesco: 'padre' | 'madre' | 'tutor_legal' | 'otro';
   telefono?: string;
   email?: string;

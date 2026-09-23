@@ -1,6 +1,8 @@
 const tutorModel = require('../models/tutor.model');
 const transaction = require('../utils/transaction.util');
 const { calcularEdadExacta } = require('../utils/edad.util');
+const pacienteModel = require('../models/paciente.model');
+const { resolverContactoPaciente } = require('../utils/contactoPaciente.util');
 class TutorError extends Error {
   constructor(message, status = 409) { super(message); this.status = status; }
 }
@@ -26,6 +28,18 @@ async function tutorActivo(db, id) {
 async function normalizarPrincipal(db, pacienteId) {
   const [rows] = await db.query("SELECT pt.tutor_id FROM paciente_tutor pt JOIN tutores t ON t.id=pt.tutor_id WHERE pt.paciente_id=? AND pt.estado='activo' AND t.estado='activo' ORDER BY pt.es_principal DESC, pt.tutor_id FOR UPDATE", [pacienteId]);
   await db.query('UPDATE paciente_tutor SET es_principal = (tutor_id = ?) WHERE paciente_id = ?', [rows[0]?.tutor_id || 0, pacienteId]);
+  await marcarContactoPendiente(db,pacienteId);
+}
+async function marcarContactoPendiente(db,pacienteId) {
+  const paciente=await pacienteModel.findById(pacienteId,db);
+  if(!paciente)return;
+  const tutores=await pacienteModel.findTutoresByPacienteId(pacienteId,db);
+  const contacto=resolverContactoPaciente(paciente,tutores);
+  const requiereTutor=paciente.es_dependiente || calcularEdadExacta(paciente.fecha_nacimiento).anios<18;
+  if(paciente.identidad_provisional || !contacto.email?.trim() || !contacto.telefono?.trim() ||
+      (requiereTutor && (!tutores[0]?.email?.trim() || !tutores[0]?.telefono?.trim()))) {
+    await db.query('UPDATE pacientes SET registro_pendiente=1 WHERE id=?',[pacienteId]);
+  }
 }
 async function comprobarResponsable(db, pacienteId, tutorId) {
   const [[paciente]] = await db.query('SELECT * FROM pacientes WHERE id=? FOR UPDATE', [pacienteId]);
@@ -51,7 +65,16 @@ async function crear(data) {
     return tutor;
   });
 }
-async function actualizar(id, data) { return tutorModel.update(id, data); }
+async function actualizar(id, data) {
+  return transaction(async db => {
+    await bloquearPacientes(db);
+    await tutorActivo(db,id);
+    const tutor=await tutorModel.update(id,data,db);
+    const [vinculos]=await db.query("SELECT paciente_id FROM paciente_tutor WHERE tutor_id=? AND estado='activo'",[id]);
+    for(const vinculo of vinculos)await marcarContactoPendiente(db,vinculo.paciente_id);
+    return tutor;
+  });
+}
 async function desactivar(id) {
   return transaction(async db => {
     await bloquearPacientes(db);

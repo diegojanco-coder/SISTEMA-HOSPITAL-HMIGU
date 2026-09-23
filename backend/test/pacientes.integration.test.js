@@ -6,7 +6,7 @@ const { body } = require('express-validator');
 const validar = require('../src/middlewares/validate.middleware');
 const { calcularEdadExacta } = require('../src/utils/edad.util');
 const original = pool.getConnection.bind(pool);
-const base = { nombres:'Prueba', apellidos:'Temporal', fechaNacimiento:'1990-01-01', sexo:'F' };
+const base = { nombres:'Prueba', apellidos:'Temporal', fechaNacimiento:'1990-01-01', sexo:'F', telefonoContacto:'70000000', email:'paciente@example.invalid' };
 const tutor = { nombres:'Tutor',apellidos:'Temporal',carnetIdentidad:'TEST-'+require('node:crypto').randomBytes(6).toString('hex'),parentesco:'otro',telefono:'70000000',email:'prueba@example.invalid' };
 async function isolated(run) {
  const conn = await original();

@@ -4,6 +4,8 @@ const {createHash}=require('node:crypto');
 const {pool}=require('../config/db');
 const {smtp,db:dbConfig}=require('../config/env');
 const correo=require('./correo.service');
+const pacienteModel=require('../models/paciente.model');
+const {resolverContactoPaciente}=require('../utils/contactoPaciente.util');
 function correoValido(value){return typeof value==='string' && value.length<=150 && /^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$/.test(value);}
 async function enviarAlertaVacuna({pacienteId,dosisId,destinatario,paciente,mensaje,estado,fechaLimite}){
  const email=correoValido(destinatario)?destinatario.trim():null;
@@ -18,7 +20,12 @@ async function resumen(){
  return {habilitado:smtp.enabled,configurado:correo.configurado(),estados};
 }
 async function vigente(db,row){
- const [[alcance]]=await db.query(`SELECT p.fecha_nacimiento,p.departamento,d.*,d.estado AS dosis_estado,v.estado AS vacuna_estado
+ const paciente=await pacienteModel.findById(row.paciente_id,db);
+ if(!paciente || paciente.estado!=='activo' || paciente.registro_pendiente || paciente.identidad_provisional)return false;
+ const tutores=await pacienteModel.findTutoresByPacienteId(paciente.id,db);
+ const contacto=resolverContactoPaciente(paciente,tutores);
+ if(!correoValido(contacto.email) || contacto.email.trim()!==row.destinatario)return false;
+ const [[alcance]]=await db.query(`SELECT p.fecha_nacimiento,p.departamento,p.sexo,d.*,d.estado AS dosis_estado,v.estado AS vacuna_estado
  FROM pacientes p JOIN dosis d ON d.id=? JOIN vacunas v ON v.id=d.vacuna_id WHERE p.id=?`,[row.dosis_id,row.paciente_id]);
  if(!alcance || alcance.dosis_estado!=='activo' || alcance.vacuna_estado!=='activo' || evaluarAlcance(alcance,alcance))return false;
  let regla=alcance.regla_calendario;
@@ -32,8 +39,7 @@ async function vigente(db,row){
  }
  const [[actual]]=await db.query(`SELECT a.mensaje,a.fecha_limite FROM alertas a JOIN pacientes p ON p.id=a.paciente_id
  WHERE a.paciente_id=? AND a.dosis_id=? AND p.estado='activo'
- AND NOT EXISTS(SELECT 1 FROM historial_vacunacion h WHERE h.paciente_id=p.id AND h.dosis_id=a.dosis_id)
- AND (p.email=? OR EXISTS(SELECT 1 FROM paciente_tutor pt JOIN tutores t ON t.id=pt.tutor_id WHERE pt.paciente_id=p.id AND pt.estado='activo' AND t.estado='activo' AND t.email=?))`,[row.paciente_id,row.dosis_id,row.destinatario,row.destinatario]);
+ AND NOT EXISTS(SELECT 1 FROM historial_vacunacion h WHERE h.paciente_id=p.id AND h.dosis_id=a.dosis_id)`,[row.paciente_id,row.dosis_id]);
  return actual && actual.mensaje===row.mensaje && actual.fecha_limite===row.fecha_limite;
 }
 async function procesarPendientes(){

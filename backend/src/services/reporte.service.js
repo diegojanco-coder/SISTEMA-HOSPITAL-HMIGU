@@ -45,12 +45,12 @@ async function vacunasAplicadas({ desde, hasta }) {
      INNER JOIN vacunas v ON v.id = d.vacuna_id
      LEFT JOIN usuarios u ON u.id = h.usuario_id
      INNER JOIN lotes_vacuna lv ON lv.id = h.lote_vacuna_id
-     WHERE h.fecha_aplicacion BETWEEN ? AND ?
+     WHERE h.origen='local' AND h.fecha_aplicacion BETWEEN ? AND ?
      ORDER BY h.fecha_aplicacion DESC`,
     [desde, hasta]
   );
   return {
-    titulo: `Vacunas aplicadas (${desde} a ${hasta})`,
+    titulo: `Vacunas aplicadas en el hospital (${desde} a ${hasta})`,
     columnas: [
       { key: 'codigo_paciente', header: 'Código', width: 14 },
       { key: 'nombres', header: 'Nombres', width: 16 },
@@ -171,11 +171,11 @@ async function vacunasPorFecha({ fecha }) {
      INNER JOIN dosis d ON d.id = h.dosis_id
      INNER JOIN vacunas v ON v.id = d.vacuna_id
      INNER JOIN lotes_vacuna lv ON lv.id = h.lote_vacuna_id
-     WHERE h.fecha_aplicacion = ?`,
+     WHERE h.origen='local' AND h.fecha_aplicacion = ?`,
     [fecha]
   );
   return {
-    titulo: `Vacunas aplicadas el ${fecha}`,
+    titulo: `Vacunas aplicadas en el hospital el ${fecha}`,
     columnas: [
       { key: 'codigo_paciente', header: 'Código', width: 14 },
       { key: 'nombres', header: 'Nombres', width: 18 },

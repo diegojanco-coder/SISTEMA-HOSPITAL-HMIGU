@@ -4,6 +4,7 @@ const dosisModel = require('../models/dosis.model');
 const historialModel = require('../models/historial.model');
 const motor = require('./motorVacunacion.service');
 const notificacionService = require('./notificacion.service');
+const { resolverContactoPaciente } = require('../utils/contactoPaciente.util');
 
 const MAPA_SEMAFORO = {
   proxima: 'amarillo',
@@ -28,6 +29,8 @@ async function generarAlertasPaciente(pacienteId) {
   const catalogoDosis = await dosisModel.findAllConVacuna();
   const historial = await historialModel.findByPacienteId(pacienteId);
   const { detalle, estadoGeneral, resumen } = motor.evaluarEsquema(paciente, catalogoDosis, historial);
+  const tutores = await pacienteModel.findTutoresByPacienteId(pacienteId);
+  const contacto = resolverContactoPaciente(paciente,tutores);
 
   for (const item of detalle) {
     if (!MAPA_SEMAFORO[item.estado]) {
@@ -42,8 +45,7 @@ async function generarAlertasPaciente(pacienteId) {
       mensaje: MENSAJES[item.estado](item.vacunaNombre, item.nombreDosis)
     });
     {
-      const tutores = await pacienteModel.findTutoresByPacienteId(pacienteId);
-      const destinatario = paciente.email || tutores.find((t) => t.email)?.email;
+      const destinatario = paciente.registro_pendiente || paciente.identidad_provisional ? null : contacto.email;
       await notificacionService.enviarAlertaVacuna({ pacienteId, dosisId: item.dosisId, fechaLimite: item.fechaLimite, destinatario, paciente: `${paciente.nombres} ${paciente.apellidos}`, mensaje: MENSAJES[item.estado](item.vacunaNombre, item.nombreDosis), estado: item.estado });
     }
   }

@@ -35,7 +35,22 @@ export async function registrarAplicacion(payload: DatosAplicacion) {
   return registrarVisita({ pacienteId, dosisAplicadas: [dosis] });
 }
 
-export async function corregirAplicacion(id: number, payload: { fechaAplicacion: string; establecimiento: string; observaciones: string }) {
+export interface DatosAntecedente {
+  pacienteId: number;
+  dosisId: number;
+  fechaAplicacion: string;
+  establecimiento: string;
+  documentoReferencia: string;
+  observaciones?: string;
+}
+
+export async function registrarAntecedente(payload: DatosAntecedente) {
+  const { data } = await api.post<{ data: HistorialItem & { advertencias?: string[] } }>('/historial/antecedentes', payload);
+  data.data.advertencias?.forEach(mensaje => toast(mensaje, { icon: '⚠️', duration: 8000 }));
+  return data.data;
+}
+
+export async function corregirAplicacion(id: number, payload: { fechaAplicacion: string; establecimiento: string; observaciones: string; documentoReferencia?: string }) {
   const { data } = await api.put<{ data: HistorialItem & { advertencias?: string[] } }>(`/historial/${id}`, payload);
   data.data.advertencias?.forEach(mensaje => toast(mensaje, { icon: '⚠️', duration: 8000 }));
   return data.data;

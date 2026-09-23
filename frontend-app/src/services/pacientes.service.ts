@@ -18,6 +18,10 @@ export async function obtenerEsquemaPaciente(id: number | string) {
 }
 
 export interface DatosPaciente {
+  tipoPaciente?: 'menor' | 'adulto';
+  identidadProvisional?: boolean;
+  guardarPrerregistro?: boolean;
+  contactoAlertas?: 'paciente' | 'tutor';
   departamento?: string;
   esDependiente?: boolean;
   email?: string;

@@ -6,6 +6,7 @@
 const path = require('path');
 const fs = require('fs');
 require('dotenv').config({path:path.resolve(__dirname,'../../.env')});
+const mysqlWindows=path.join(process.env.ProgramFiles || 'C:/Program Files','MySQL','MySQL Server 8.0','bin','mysql.exe');
 const dumpWindows=path.join(process.env.ProgramFiles || 'C:/Program Files','MySQL','MySQL Server 8.0','bin','mysqldump.exe');
 
 if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
@@ -15,6 +16,10 @@ if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
 module.exports = {
   env: process.env.NODE_ENV || 'development',
   port: Number(process.env.PORT) || 4000,
+  host: process.env.HOST || '127.0.0.1',
+  serveFrontend: process.env.SERVE_FRONTEND === 'true',
+  frontendDist: process.env.FRONTEND_DIST || path.resolve(__dirname,'../../../frontend-app/dist'),
+  timezone: process.env.TZ || 'America/La_Paz',
 
   db: {
     host: process.env.DB_HOST || 'localhost',
@@ -37,6 +42,7 @@ module.exports = {
   backup: {
     cron: process.env.BACKUP_CRON || '0 2 * * *',
     dir: process.env.BACKUP_DIR || path.resolve(__dirname,'../../backups'),
+    mysqlPath: process.env.MYSQL_PATH || (process.platform==='win32' && fs.existsSync(mysqlWindows) ? mysqlWindows : 'mysql'),
     mysqldumpPath: process.env.MYSQLDUMP_PATH || (process.platform==='win32' && fs.existsSync(dumpWindows) ? dumpWindows : 'mysqldump')
   },
 

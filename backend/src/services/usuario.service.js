@@ -1,4 +1,5 @@
 const transaction=require('../utils/transaction.util');
+const auditoria=require('../models/auditoria.model');
 const usuarioModel = require('../models/usuario.model');
 const { hashPassword } = require('../utils/password.util');
 
@@ -26,9 +27,14 @@ async function actualizar(id, data) {
   });
 }
 
-async function cambiarPassword(id, nuevaPassword) {
+async function cambiarPassword(id, nuevaPassword, actor={}) {
   const hash = await hashPassword(nuevaPassword);
-  return usuarioModel.updatePassword(id, hash);
+  return transaction(async db=>{
+    const [[usuario]]=await db.query('SELECT id FROM usuarios WHERE id=? FOR UPDATE',[id]);
+    if(!usuario)throw Object.assign(new Error('Usuario no encontrado'),{status:404});
+    await db.query('UPDATE usuarios SET password_hash=? WHERE id=?',[hash,id]);
+    await auditoria.create({usuarioId:actor.usuarioId||null,accion:'EDITAR',entidad:'usuarios',entidadId:Number(id),datosNuevos:{passwordActualizado:true},ip:actor.ip,userAgent:actor.userAgent},db);
+  });
 }
 
 async function desactivar(id) {

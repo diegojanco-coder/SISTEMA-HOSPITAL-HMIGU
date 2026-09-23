@@ -8,6 +8,7 @@ import { listarAuditoria } from '../../../services/auditoria.service';
 import { ejecutarBackup, listarBackups, type BackupInfo } from '../../../services/backup.service';
 import type { RegistroAuditoria, Usuario, Vacuna } from '../../../lib/types';
 import { errorLongitud, LIMITES_TEXTO, normalizarEspacios, validateForm } from '../../../lib/validaciones';
+import PasswordModal from './PasswordModal';
 
 const inputClass = 'w-full px-4 py-3 rounded-lg border border-border focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 outline-none';
 const labelClass = 'block text-sm font-semibold text-foreground mb-2';
@@ -23,6 +24,8 @@ export default function Configuracion() {
   const [showAuditoria, setShowAuditoria] = useState(false);
   const [showUsuarioModal, setShowUsuarioModal] = useState(false);
   const [editandoUsuario, setEditandoUsuario] = useState<Usuario | null>(null);
+  const [usuarioPassword, setUsuarioPassword] = useState<Usuario | null>(null);
+  const [mensaje, setMensaje] = useState('');
   const [showVacunaModal, setShowVacunaModal] = useState(false);
   const [showDosisModal, setShowDosisModal] = useState<Vacuna | null>(null);
   const [generandoBackup, setGenerandoBackup] = useState(false);
@@ -57,6 +60,7 @@ export default function Configuracion() {
   return (
     <div className="space-y-6">
       {error&&<p role="alert" className="text-red-600">{error} <button className="underline" onClick={()=>{setError('');cargar().catch(()=>setError('No se pudo cargar la configuración.'));}}>Reintentar</button></p>}
+      {mensaje && <p role="status" className="text-green-700 dark:text-green-400">{mensaje}</p>}
       <div>
         <h3 className="text-2xl font-bold text-foreground" style={fontHeading}>Configuración del Sistema</h3>
         <p className="text-muted-foreground" style={fontBody}>Panel de administración - Solo administradores</p>
@@ -72,7 +76,7 @@ export default function Configuracion() {
         </div>
         <div className="space-y-3">
           {usuarios.map((u) => (
-            <div key={u.id} className="flex items-center justify-between p-4 rounded-lg border border-border hover:border-cyan-300 hover:bg-cyan-50/30 transition-all">
+            <div key={u.id} className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 p-4 rounded-lg border border-border hover:border-cyan-300 hover:bg-cyan-50/30 transition-all">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-white font-bold">{u.nombre_completo.charAt(0)}</div>
                 <div>
@@ -87,8 +91,9 @@ export default function Configuracion() {
                   </span>
                   <p className="text-xs text-muted-foreground mt-1" style={fontBody}>{u.estado === 'activo' ? 'Activo' : 'Inactivo'}</p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <button onClick={() => { setEditandoUsuario(u); setShowUsuarioModal(true); }} className="px-4 py-2 rounded-lg bg-muted text-foreground text-sm font-medium hover:bg-gray-200 transition-colors">Editar</button>
+                  <button onClick={() => { setMensaje(''); setUsuarioPassword(u); }} className="px-4 py-2 rounded-lg bg-muted text-foreground text-sm font-medium">Cambiar contraseña</button>
                   {u.estado === 'activo' && (
                     <button onClick={() => onEliminarUsuario(u)} className="px-4 py-2 rounded-lg bg-red-100 text-red-700 text-sm font-medium hover:bg-red-200 transition-colors">Desactivar</button>
                   )}
@@ -157,6 +162,9 @@ export default function Configuracion() {
       )}
       {showVacunaModal && (
         <VacunaModal onClose={() => setShowVacunaModal(false)} onSaved={() => { setShowVacunaModal(false); cargar(); }} />
+      )}
+      {usuarioPassword && (
+        <PasswordModal usuario={usuarioPassword} onClose={() => setUsuarioPassword(null)} onSaved={() => { setUsuarioPassword(null); setMensaje('Contraseña actualizada correctamente.'); }} />
       )}
       {showDosisModal && (
         <DosisModal vacuna={showDosisModal} onClose={() => setShowDosisModal(null)} onSaved={() => { setShowDosisModal(null); cargar(); }} />
@@ -281,9 +289,10 @@ function VacunaModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
 }
 
 function DosisModal({ vacuna, onClose, onSaved }: { vacuna: Vacuna; onClose: () => void; onSaved: () => void }) {
-  const [form, setForm] = useState<DatosDosis>({ numeroDosis: vacuna.dosis.length + 1, nombreDosis: '', edadRecomendadaDias: 0, toleranciaDias: 30, intervaloMinimoDias: 0 });
+  const [form, setForm] = useState<DatosDosis>({ numeroDosis: Math.max(0,...vacuna.dosis.map(d=>d.numero_dosis)) + 1, nombreDosis: '', edadRecomendadaDias: 0, toleranciaDias: 30, intervaloMinimoDias: 0 });
   const [guardando, setGuardando] = useState(false);
   const [errores, setErrores] = useState<Record<string, string>>({});
+  const [errorMsg, setErrorMsg] = useState('');
 
   function cambiarNumero(campo: keyof DatosDosis, valor: string) {
     setForm({ ...form, [campo]: valor === '' ? Number.NaN : Number(valor) });
@@ -298,22 +307,26 @@ function DosisModal({ vacuna, onClose, onSaved }: { vacuna: Vacuna; onClose: () 
     if (!Number.isFinite(form.toleranciaDias) || form.toleranciaDias < 0) nuevosErrores.toleranciaDias = 'La tolerancia debe ser un número mayor o igual a 0';
     if (Object.keys(nuevosErrores).length > 0) { setErrores(nuevosErrores); return; }
     setGuardando(true);
-    try { await agregarDosis(vacuna.id, form); onSaved(); } finally { setGuardando(false); }
+    setErrorMsg('');
+    try { await agregarDosis(vacuna.id, form); onSaved(); }
+    catch(err:any){setErrorMsg(err?.response?.data?.message || 'No se pudo guardar la dosis. Intente nuevamente.');}
+    finally { setGuardando(false); }
   }
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
       <div className="bg-card rounded-2xl max-w-lg w-full">
         <div className="sticky top-0 bg-card border-b border-border px-6 py-4 flex items-center justify-between rounded-t-2xl">
-          <h3 className="text-xl font-bold text-foreground" style={fontHeading}>Nueva Dosis - {vacuna.nombre}</h3>
+          <h3 id="dosis-title" className="text-xl font-bold text-foreground" style={fontHeading}>Nueva Dosis - {vacuna.nombre}</h3>
           <button onClick={onClose} className="p-2 rounded-lg hover:bg-muted"><X className="w-5 h-5 text-muted-foreground" /></button>
         </div>
         <form onSubmit={handleSubmit} className="p-6 grid grid-cols-2 gap-4">
+          {errorMsg&&<p role="alert" className="col-span-2 text-red-600">{errorMsg}</p>}
           <div><label className={labelClass} style={fontBody}>N° de dosis</label>
             <input type="number" required min="1" value={Number.isNaN(form.numeroDosis) ? '' : form.numeroDosis} onChange={(e) => cambiarNumero('numeroDosis', e.target.value)} className={`${inputClass} ${errores.numeroDosis ? 'border-red-500 ring-2 ring-red-500/20' : ''}`} style={fontBody} />
             {errores.numeroDosis && <p className="text-xs text-red-600 mt-1">{errores.numeroDosis}</p>}</div>
           <div><label className={labelClass} style={fontBody}>Nombre de la dosis</label>
-            <input required value={form.nombreDosis} onChange={(e) => setForm({ ...form, nombreDosis: e.target.value })} className={inputClass} style={fontBody} /></div>
+            <input required maxLength={60} value={form.nombreDosis} onChange={(e) => setForm({ ...form, nombreDosis: e.target.value })} className={inputClass} style={fontBody} /></div>
           <div><label className={labelClass} style={fontBody}>Edad recomendada (días)</label>
             <input type="number" required min="0" value={Number.isNaN(form.edadRecomendadaDias) ? '' : form.edadRecomendadaDias} onChange={(e) => cambiarNumero('edadRecomendadaDias', e.target.value)} className={`${inputClass} ${errores.edadRecomendadaDias ? 'border-red-500 ring-2 ring-red-500/20' : ''}`} style={fontBody} />
             {errores.edadRecomendadaDias && <p className="text-xs text-red-600 mt-1">{errores.edadRecomendadaDias}</p>}</div>

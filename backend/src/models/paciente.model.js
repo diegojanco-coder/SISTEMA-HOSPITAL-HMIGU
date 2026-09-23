@@ -39,12 +39,13 @@ async function findById(id, db = pool) {
   return rows[0] || null;
 }
 
-async function findTutoresByPacienteId(pacienteId) {
-  const [rows] = await pool.query(
+async function findTutoresByPacienteId(pacienteId, db = pool) {
+  const [rows] = await db.query(
     `SELECT t.*, pt.es_principal
      FROM tutores t
      INNER JOIN paciente_tutor pt ON pt.tutor_id = t.id
-     WHERE pt.paciente_id = ? AND pt.estado = 'activo' AND t.estado = 'activo'`,
+     WHERE pt.paciente_id = ? AND pt.estado = 'activo' AND t.estado = 'activo'
+     ORDER BY pt.es_principal DESC,t.id`,
     [pacienteId]
   );
   return rows;
@@ -65,11 +66,13 @@ async function create(data, db = pool) {
   const [result] = await db.query(
     `INSERT INTO pacientes
       (codigo_paciente, nombres, apellidos, carnet_identidad, fecha_nacimiento, sexo,
-       direccion, telefono_contacto, email, lugar_nacimiento, es_dependiente, creado_por, departamento)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       direccion, telefono_contacto, email, lugar_nacimiento, es_dependiente, creado_por, departamento,
+       identidad_provisional, registro_pendiente, contacto_alertas)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [codigo, data.nombres, data.apellidos, data.carnetIdentidad || null, data.fechaNacimiento,
      data.sexo, data.direccion || null, data.telefonoContacto || null, data.email || null, data.lugarNacimiento || null,
-     data.esDependiente ? 1 : 0, data.creadoPor || null, data.departamento || null]
+     data.esDependiente ? 1 : 0, data.creadoPor || null, data.departamento || null,
+     data.identidadProvisional ? 1 : 0, data.registroPendiente ? 1 : 0, data.contactoAlertas]
   );
   return findById(result.insertId, db);
 }
@@ -77,10 +80,12 @@ async function create(data, db = pool) {
 async function update(id, data, db = pool) {
   await db.query(
     `UPDATE pacientes SET nombres = ?, apellidos = ?, carnet_identidad = ?, fecha_nacimiento = ?,
-       sexo = ?, direccion = ?, telefono_contacto = ?, email = ?, lugar_nacimiento = ?, es_dependiente = ?, departamento = ?
+       sexo = ?, direccion = ?, telefono_contacto = ?, email = ?, lugar_nacimiento = ?, es_dependiente = ?, departamento = ?,
+       identidad_provisional = ?, registro_pendiente = ?, contacto_alertas = ?
      WHERE id = ?`,
     [data.nombres, data.apellidos, data.carnetIdentidad || null, data.fechaNacimiento, data.sexo,
-     data.direccion || null, data.telefonoContacto || null, data.email || null, data.lugarNacimiento || null, data.esDependiente ? 1 : 0, data.departamento || null, id]
+     data.direccion || null, data.telefonoContacto || null, data.email || null, data.lugarNacimiento || null, data.esDependiente ? 1 : 0, data.departamento || null,
+     data.identidadProvisional ? 1 : 0, data.registroPendiente ? 1 : 0, data.contactoAlertas, id]
   );
   return findById(id, db);
 }

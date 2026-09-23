@@ -61,9 +61,9 @@ async function generarCarnetPDF(pacienteId) {
   doc.fontSize(12).fillColor(AZUL).text('Historial de vacunas aplicadas', 40, y);
   y += 20;
   // El historial clínico permanece aunque se retire una vacuna del catálogo activo.
-  const aplicadas = historial;
+  const aplicadas = historial.filter(d => d.origen !== 'externo');
   if (aplicadas.length === 0) {
-    doc.fontSize(9).fillColor('#555').text('Aún no se registran vacunas aplicadas.', 40, y);
+    doc.fontSize(9).fillColor('#555').text('Aún no se registran aplicaciones locales.', 40, y);
     y += 20;
   } else {
     y = dibujarTablaSimple(doc, {
@@ -74,13 +74,30 @@ async function generarCarnetPDF(pacienteId) {
     });
   }
 
+  const externos = historial.filter(d => d.origen === 'externo');
+  if (externos.length) {
+    y += 20;
+    if (y + 130 > doc.page.height - 60) { doc.addPage(); y = 40; }
+    doc.fontSize(12).fillColor(AZUL).text('Antecedentes externos documentados', 40, y);
+    y += 22;
+    y = dibujarTablaSimple(doc, {
+      headers: ['Vacuna / dosis', 'Fecha', 'Procedencia y documento'],
+      rows: externos.map(d => [`${d.vacuna_nombre} - ${d.nombre_dosis}`, d.fecha_aplicacion,
+        `Establecimiento: ${d.establecimiento}\nDocumento: ${d.documento_referencia}\nRegistrado por: ${d.registrado_por || 'Sin dato'}`]),
+      startY: y, colWidths: [170, 80, 265]
+    });
+  }
+
   // Próximas vacunas
-  y += 20;
   const pendientesOProximas = detalle.filter((d) => ['proxima', 'pendiente', 'atrasada'].includes(d.estado));
+  y += 16;
+  const aviso=advertencia || 'No hay dosis pendientes en el calendario configurado.';
+  const espacio=pendientesOProximas.length ? 100 : 22+doc.fontSize(9).heightOfString(aviso,{width:doc.page.width-80});
+  if (y + espacio > doc.page.height - 60) { doc.addPage(); y = 40; }
   doc.fontSize(12).fillColor(AZUL).text('Próximas vacunas / pendientes', 40, y);
   y += 20;
   if (pendientesOProximas.length === 0) {
-    doc.fontSize(9).fillColor('#555').text(advertencia || 'No hay dosis pendientes en el calendario configurado.', 40, y);
+    doc.fontSize(9).fillColor('#555').text(aviso, 40, y);
   } else {
     dibujarTablaSimple(doc, {
       headers: ['Vacuna', 'Dosis', 'Fecha límite', 'Estado'],
@@ -90,10 +107,13 @@ async function generarCarnetPDF(pacienteId) {
     });
   }
 
+  const margenInferior=doc.page.margins.bottom;
+  doc.page.margins.bottom=0;
   doc.fontSize(7).fillColor('#888888').text(
     `Documento generado el ${new Date().toLocaleString('es-BO')} por el Sistema de Vacunación Inteligente del Hospital Materno Germán Urquidi.`,
-    40, doc.page.height - 40, { width: doc.page.width - 80 }
+    40, doc.page.height - 30, { width: doc.page.width - 80, height:20, lineBreak: false }
   );
+  doc.page.margins.bottom=margenInferior;
 
   return doc; // El controlador se encarga de doc.pipe(res) y doc.end()
 }
