@@ -18,6 +18,54 @@ test('flujo HTTP: login, permisos, paciente, catálogo, regla, lote, aplicación
  const u=await json('/usuarios',admin,'POST',{nombreCompleto:'Usuario Temporal',email:`nuevo${tag}@example.invalid`,username:'nuevo'+tag,password,rol:'enfermero'},201);assert.ok(u.id);
  const p=await json('/pacientes',nurse,'POST',{nombres:'Persona',apellidos:'Temporal',fechaNacimiento:'1990-01-01',sexo:'F',departamento:'Cochabamba',telefonoContacto:'70000000',email:'paciente@example.invalid'},201);
  assert.equal((await json('/pacientes/'+p.id,nurse)).departamento,'Cochabamba');
+ // Invalid pagination must fail before reaching MySQL; valid defaults still list patients.
+ for(const [path,field] of [
+  ['/pacientes?page=-1&limit=10','page'],
+  ['/pacientes?page=abc&limit=10','page'],
+  ['/pacientes?page=0&limit=10','page'],
+  ['/pacientes?page=1.5&limit=10','page'],
+  ['/pacientes?page=1&limit=abc','limit'],
+  ['/pacientes?page=1&limit=0','limit'],
+  ['/pacientes?page=1&limit=101','limit'],
+  ['/pacientes?page=1&page=2','page'],
+  ['/pacientes?page=1&limit=1&limit=2','limit'],
+  ['/pacientes?q%5Bvalor%5D=ana','q'],
+  ['/pacientes?q='+('a'.repeat(101)),'q']
+ ]) {
+  const response=await req(path,nurse);
+  const body=await response.json();
+  assert.equal(response.status,422,`${path}: ${body.message}`);
+  assert.equal(body.errors[0].campo,field);
+ }
+ // All HTTP lists must reject malformed pagination and search filters consistently.
+ for(const [path,field,token] of [
+  ['/pacientes/buscar?q%5Bvalor%5D=ana','q',nurse],
+  ['/pacientes/buscar?q=uno&q=dos','q',nurse],
+  ['/tutores?page=abc','page',nurse],
+  ['/tutores?limit=0','limit',nurse],
+  ['/tutores?page=1&page=2','page',nurse],
+  ['/tutores?q%5Bvalor%5D=ana','q',nurse],
+  ['/alertas?page=-1','page',nurse],
+  ['/alertas?limit=abc','limit',nurse],
+  ['/alertas?estado=rojo&estado=verde','estado',nurse],
+  ['/auditoria?page=abc','page',admin],
+  ['/auditoria?limit=0','limit',admin],
+  ['/auditoria?usuarioId=abc','usuarioId',admin],
+  ['/usuarios?estado=activo&estado=inactivo','estado',admin]
+ ]) {
+  const response=await req(path,token);
+  const body=await response.json();
+  assert.equal(response.status,422,`${path}: ${body.message}`);
+  assert.equal(body.errors[0].campo,field);
+ }
+ const tutoresPagina=await json('/tutores?page=1&limit=1',nurse);
+ assert.equal(tutoresPagina.page,1);assert.equal(tutoresPagina.limit,1);
+ assert.ok(Array.isArray(await json('/pacientes/buscar?q=Persona',nurse)));
+ assert.ok(Array.isArray(await json('/alertas?page=1&limit=1&estado=rojo',nurse)));
+ assert.ok(Array.isArray(await json('/usuarios?estado=activo',admin)));
+ await json('/auditoria?page=1&limit=1',admin);
+ const pagina=await json('/pacientes?page=1&limit=1',nurse);
+ assert.equal(pagina.page,1);assert.equal(pagina.limit,1);assert.ok(pagina.rows.some(row=>row.id===p.id));
  const v=await json('/vacunas',admin,'POST',{nombre:'Prueba '+tag,nombreCorto:tag},201);
  const d=await json(`/vacunas/${v.id}/dosis`,admin,'POST',{numeroDosis:1,nombreDosis:'Al contacto',edadRecomendadaDias:0,toleranciaDias:30},201);
  await json(`/vacunas/dosis/${d.id}/calendario`,admin,'PUT',{version:0,edadValor:0,edadUnidad:'dias',toleranciaDias:30,regla:{tipo:'regular',minMeses:216,fuente:'https://example.invalid/norma',habilitada:true,programacion:{base:'contacto'}}});

@@ -4,6 +4,7 @@ const ctrl = require('../controllers/paciente.controller');
 const authMiddleware = require('../middlewares/auth.middleware');
 const auditar = require('../middlewares/audit.middleware');
 const validar = require('../middlewares/validate.middleware');
+const { pagination, search } = require('../middlewares/listQuery.middleware');
 const permitirRoles = require('../middlewares/role.middleware');
 const { CI_REGEX, NOMBRE_REGEX, esFechaISOValida, esTelefonoBoliviano } = require('../utils/validation.util');
 
@@ -38,8 +39,8 @@ const reglasPaciente = [
   body('sexo').isIn(['M', 'F']).withMessage('Sexo inválido')
 ];
 
-router.get('/buscar', ctrl.buscar);
-router.get('/', ctrl.listar);
+router.get('/buscar', [search], validar, ctrl.buscar);
+router.get('/', [...pagination, search], validar, ctrl.listar);
 router.get('/:id', ctrl.obtener);
 router.get('/:id/esquema', ctrl.obtenerEsquema);
 router.post('/', permitirRoles('administrador', 'enfermero'), reglasPaciente, validar, auditar('CREAR', 'pacientes'), ctrl.crear);

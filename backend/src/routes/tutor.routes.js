@@ -4,6 +4,7 @@ const ctrl = require('../controllers/tutor.controller');
 const authMiddleware = require('../middlewares/auth.middleware');
 const auditar = require('../middlewares/audit.middleware');
 const validar = require('../middlewares/validate.middleware');
+const { pagination, search } = require('../middlewares/listQuery.middleware');
 const permitirRoles = require('../middlewares/role.middleware');
 const { CI_REGEX, NOMBRE_REGEX, esTelefonoBoliviano } = require('../utils/validation.util');
 
@@ -24,7 +25,7 @@ const reglasTutor = [
   body('email').optional({checkFalsy:true}).trim().isLength({ max: 120 }).withMessage('El email no puede exceder los 120 caracteres.').isEmail().withMessage('Por favor, ingrese un correo electrónico válido.')
 ];
 
-router.get('/', ctrl.listar);
+router.get('/', [...pagination, search], validar, ctrl.listar);
 router.get('/:id', ctrl.obtener);
 router.post('/', permitirRoles('administrador', 'enfermero'), reglasTutor, validar, auditar('CREAR', 'tutores'), ctrl.crear);
 router.put('/:id', permitirRoles('administrador', 'enfermero'), reglasTutor, validar, auditar('EDITAR', 'tutores'), ctrl.actualizar);

@@ -5,6 +5,7 @@ const authMiddleware = require('../middlewares/auth.middleware');
 const permitirRoles = require('../middlewares/role.middleware');
 const auditar = require('../middlewares/audit.middleware');
 const validar = require('../middlewares/validate.middleware');
+const { singleChoice } = require('../middlewares/listQuery.middleware');
 
 const router = Router();
 router.use(authMiddleware, permitirRoles('administrador'));
@@ -18,7 +19,7 @@ const reglasUsuario = [
   body('rol').isIn(['administrador', 'enfermero']).withMessage('Rol inválido')
 ];
 
-router.get('/', ctrl.listar);
+router.get('/', [singleChoice('estado', ['activo', 'inactivo'])], validar, ctrl.listar);
 router.get('/:id', ctrl.obtener);
 router.post('/', [...reglasUsuario, passwordFuerte], validar, auditar('CREAR', 'usuarios'), ctrl.crear);
 router.put('/:id', reglasUsuario, validar, auditar('EDITAR', 'usuarios'), ctrl.actualizar);
