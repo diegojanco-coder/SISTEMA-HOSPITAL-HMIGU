@@ -58,7 +58,7 @@ module.exports=async function probarRegistro({page,navigate,response,screenshot,
   const rechazo=page.waitForResponse(r=>new URL(r.url()).pathname.endsWith('/pacientes')&&r.request().method()==='POST');
   await modal.getByRole('button',{name:'Guardar prerregistro',exact:true}).click();
   assert.equal((await rechazo).status(),409);
-  await modal.getByText(/Ya existe un paciente o tutor con ese documento/).waitFor();
+  await modal.getByText(/Ya existe (?:el paciente .*|un paciente o tutor) con ese documento/).waitFor();
   const [[despues]]=await connection.query('SELECT COUNT(*) n FROM pacientes');assert.equal(despues.n,antes.n);
   await modal.getByRole('button',{name:'Anterior',exact:true}).click();
   await modal.getByRole('button',{name:'Anterior',exact:true}).click();

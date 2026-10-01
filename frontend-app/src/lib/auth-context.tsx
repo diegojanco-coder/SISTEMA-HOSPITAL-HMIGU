@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import api, { guardarSesion, limpiarSesion, obtenerSesionGuardada } from './api';
+import api from './api';
 import type { SesionUsuario } from './types';
 
 interface AuthContextValue {
@@ -18,21 +18,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [cargando, setCargando] = useState(true);
 
   useEffect(() => {
-    const guardado = obtenerSesionGuardada<SesionUsuario>();
-    if (guardado) setUsuario(guardado);
-    setCargando(false);
+    const convertir = (usuarioApi: any): SesionUsuario => ({
+      id: usuarioApi.id, nombre: usuarioApi.nombre_completo,
+      email: usuarioApi.email, rol: usuarioApi.rol,
+    });
+    const expirada = () => setUsuario(null);
+    window.addEventListener('hmgu:unauthorized', expirada);
+    api.get('/auth/me')
+      .then(({ data }) => setUsuario(convertir(data.data)))
+      .catch(() => setUsuario(null))
+      .finally(() => setCargando(false));
+    return () => window.removeEventListener('hmgu:unauthorized', expirada);
   }, []);
 
   async function login(loginValue: string, password: string) {
     const { data } = await api.post('/auth/login', { login: loginValue, password });
-    const { token, usuario: usuarioApi } = data.data;
+    const { usuario: usuarioApi } = data.data;
     const sesion: SesionUsuario = {
       id: usuarioApi.id,
       nombre: usuarioApi.nombre_completo,
       email: usuarioApi.email,
       rol: usuarioApi.rol,
     };
-    guardarSesion(token, sesion);
     setUsuario(sesion);
     return sesion;
   }
@@ -43,7 +50,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       // el logout local debe funcionar aunque la llamada a la API falle
     }
-    limpiarSesion();
     setUsuario(null);
   }
 

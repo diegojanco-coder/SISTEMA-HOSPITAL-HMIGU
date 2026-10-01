@@ -157,7 +157,7 @@ async function screenshot(name) { await page.screenshot({path:path.join(evidence
     await login('enfermeria');
     assert.equal(await page.getByRole('button',{name:'Configuración',exact:true}).count(),0);
     assert.equal(await page.getByRole('button',{name:'Reportes',exact:true}).count(),0);
-    const nurseDenied=await page.evaluate(async url=>{const token=localStorage.getItem('hmgu_token');const r=await fetch(url+'/usuarios',{headers:{Authorization:'Bearer '+token}});return r.status;},apiUrl);assert.equal(nurseDenied,403);
+    const nurseDenied=await page.evaluate(async url=>{const r=await fetch(url+'/usuarios',{credentials:'include'});return r.status;},apiUrl);assert.equal(nurseDenied,403);
     ok('enfermería no ve administración y la API rechaza su acceso');
     phase='pacientes y tutores';
     const minor=await createPatient('Lucia',birth,'menor');
@@ -191,7 +191,7 @@ async function screenshot(name) { await page.screenshot({path:path.join(evidence
     const [stock]=await connection.query('SELECT cantidad_disponible n FROM lotes_vacuna ORDER BY id');assert.deepEqual(stock.map(r=>r.n),[4,4]);
     const [history]=await connection.query('SELECT id,cita_id FROM historial_vacunacion WHERE paciente_id=? ORDER BY id',[minor.id]);assert.equal(history.length,2);assert.ok(history[0].cita_id);assert.equal(history[0].cita_id,history[1].cita_id);
     const [[visits]]=await connection.query('SELECT COUNT(*) n FROM citas WHERE paciente_id=?',[minor.id]);assert.equal(visits.n,1);
-    const extraPermissions=await page.evaluate(async ({url,id,today})=>{const headers={Authorization:'Bearer '+localStorage.getItem('hmgu_token'),'Content-Type':'application/json'};return Promise.all([fetch(url+'/historial/'+id,{method:'PUT',headers,body:JSON.stringify({fechaAplicacion:today,establecimiento:'Ensayo',observaciones:'No permitido'})}).then(r=>r.status),fetch(url+'/reportes/pacientes-registrados',{headers}).then(r=>r.status)]);},{url:apiUrl,id:history[0].id,today});assert.deepEqual(extraPermissions,[403,403]);
+    const extraPermissions=await page.evaluate(async ({url,id,today})=>{const headers={'Content-Type':'application/json'};return Promise.all([fetch(url+'/historial/'+id,{method:'PUT',headers,credentials:'include',body:JSON.stringify({fechaAplicacion:today,establecimiento:'Ensayo',observaciones:'No permitido'})}).then(r=>r.status),fetch(url+'/reportes/pacientes-registrados',{headers,credentials:'include'}).then(r=>r.status)]);},{url:apiUrl,id:history[0].id,today});assert.deepEqual(extraPermissions,[403,403]);
     ok('visita de dos dosis guardada y stock descontado exactamente una vez');
     await screenshot('historial-ficha');
     await page.reload();await page.getByRole('button',{name:'Historial',exact:true}).waitFor();await navigate('Historial');
@@ -213,7 +213,7 @@ async function screenshot(name) { await page.screenshot({path:path.join(evidence
     const correction=page.waitForResponse(r=>/\/historial\/\d+$/.test(new URL(r.url()).pathname)&&r.request().method()==='PUT');await page.getByRole('button',{name:'Guardar corrección',exact:true}).click();const correctionResponse=await correction;assert.equal(correctionResponse.status(),200);const corrected=(await correctionResponse.json()).data;
     await page.getByText('Corrección de prueba desde navegador',{exact:true}).waitFor();
     const [afterStock]=await connection.query('SELECT cantidad_disponible n FROM lotes_vacuna ORDER BY id');assert.deepEqual(afterStock.map(r=>r.n),[4,4]);
-    const [[recorded]]=await connection.query("SELECT a.datos_previos,a.datos_nuevos,u.username FROM auditoria a JOIN usuarios u ON u.id=a.usuario_id WHERE a.entidad='historial_vacunacion' AND a.accion='EDITAR' AND a.entidad_id=? ORDER BY a.id DESC LIMIT 1",[corrected.id]);assert.equal(recorded.username,'admin');assert.equal(recorded.datos_nuevos.observaciones,'Corrección de prueba desde navegador');assert.notEqual(recorded.datos_previos.observaciones,recorded.datos_nuevos.observaciones);
+    const [[recorded]]=await connection.query("SELECT a.datos_previos,a.datos_nuevos,u.username FROM auditoria a JOIN usuarios u ON u.id=a.usuario_id WHERE a.entidad='historial_vacunacion' AND a.accion='EDITAR' AND a.entidad_id=? ORDER BY a.id DESC LIMIT 1",[corrected.id]);const previos=typeof recorded.datos_previos==='string'?JSON.parse(recorded.datos_previos):recorded.datos_previos;const nuevos=typeof recorded.datos_nuevos==='string'?JSON.parse(recorded.datos_nuevos):recorded.datos_nuevos;assert.equal(recorded.username,'admin');assert.equal(nuevos.observaciones,'Corrección de prueba desde navegador');assert.notEqual(previos.observaciones,nuevos.observaciones);
     ok('corrección administrativa visible, auditada y sin segundo descuento');
     phase='carnet y reportes';await navigate('Carnet Digital');await page.getByRole('button').filter({hasText:'Lucia Ensayo'}).click();
     const carnet=page.waitForResponse(r=>new URL(r.url()).pathname.endsWith(`/pacientes/${minor.id}/carnet`));await page.getByRole('button',{name:'Descargar Carnet en PDF'}).click();const carnetResponse=await carnet;assert.equal(carnetResponse.status(),200);assert.equal((await carnetResponse.body()).subarray(0,4).toString(),'%PDF');
@@ -254,8 +254,8 @@ async function screenshot(name) { await page.screenshot({path:path.join(evidence
     await passwordDialog.getByLabel('Nueva contraseña',{exact:true}).fill(nuevaPassword);
     await passwordDialog.getByLabel('Confirmar nueva contraseña',{exact:true}).fill(nuevaPassword);
     await response(()=>passwordDialog.getByRole('button',{name:'Guardar contraseña',exact:true}).click(),`/usuarios/${nurseAccount.id}/password`,'PATCH');
-    assert.equal((await page.request.post(apiUrl+'/auth/login',{data:{login:'enfermeria',password}})).status(),401);
-    assert.equal((await page.request.post(apiUrl+'/auth/login',{data:{login:'enfermeria',password:nuevaPassword}})).status(),200);
+    assert.equal((await fetch(apiUrl+'/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({login:'enfermeria',password})})).status,401);
+    assert.equal((await fetch(apiUrl+'/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({login:'enfermeria',password:nuevaPassword})})).status,200);
     const [[passwordAudit]]=await connection.query("SELECT datos_nuevos FROM auditoria WHERE entidad='usuarios' AND entidad_id=? AND accion='EDITAR' ORDER BY id DESC LIMIT 1",[nurseAccount.id]);
     const auditData=typeof passwordAudit.datos_nuevos==='string'?JSON.parse(passwordAudit.datos_nuevos):passwordAudit.datos_nuevos;
     assert.deepEqual(auditData,{passwordActualizado:true});
@@ -283,7 +283,7 @@ async function screenshot(name) { await page.screenshot({path:path.join(evidence
     await navigate('Vacunación');
     await page.getByText('Intervalo programado: 2 meses después de Vacuna Ensayo Alfa · Única',{exact:true}).waitFor();
     const intento=await page.evaluate(async({url,pacienteId,dosisId,loteVacunaId,fecha})=>{
-      const r=await fetch(url+'/citas',{method:'POST',headers:{Authorization:'Bearer '+localStorage.getItem('hmgu_token'),'Content-Type':'application/json'},body:JSON.stringify({pacienteId,dosisAplicadas:[{dosisId,loteVacunaId,fechaAplicacion:fecha}]})});
+      const r=await fetch(url+'/citas',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({pacienteId,dosisAplicadas:[{dosisId,loteVacunaId,fechaAplicacion:fecha}]})});
       return {status:r.status,body:await r.json()};
     },{url:apiUrl,pacienteId:minor.id,dosisId:seguimiento.id,loteVacunaId:configured[1].lot.id,fecha:today});
     assert.equal(intento.status,422);assert.match(intento.body.message,/intervalo/);
@@ -317,8 +317,8 @@ async function screenshot(name) { await page.screenshot({path:path.join(evidence
     assert.equal(externo.origen,'externo');assert.equal(externo.cita_id,null);assert.equal(externo.lote_vacuna_id,null);
     // Dos solicitudes reales concurrentes deben producir una sola identidad clínica.
     const repetidas=await page.evaluate(async({url,data})=>{
-      const headers={Authorization:'Bearer '+localStorage.getItem('hmgu_token'),'Content-Type':'application/json'};
-      return Promise.all([1,2].map(()=>fetch(url+'/historial/antecedentes',{method:'POST',headers,body:JSON.stringify(data)}).then(r=>r.status)));
+      const headers={'Content-Type':'application/json'};
+      return Promise.all([1,2].map(()=>fetch(url+'/historial/antecedentes',{method:'POST',headers,credentials:'include',body:JSON.stringify(data)}).then(r=>r.status)));
     },{url:apiUrl,data:{pacienteId:minor.id,dosisId:dosisExternas[1].id,fechaAplicacion:today,establecimiento:'Centro externo de ensayo',documentoReferencia:'Carnet de ensayo, folio 9'}});
     assert.deepEqual(repetidas.sort(),[201,409]);
     const [[cantidadExternos]]=await connection.query("SELECT COUNT(*) n FROM historial_vacunacion WHERE paciente_id=? AND origen='externo'",[minor.id]);assert.equal(cantidadExternos.n,2);
@@ -332,9 +332,9 @@ async function screenshot(name) { await page.screenshot({path:path.join(evidence
     await response(()=>corregir.getByRole('button',{name:'Guardar corrección',exact:true}).click(),'/historial/'+externo.id,'PUT');
     await page.getByText('Documento de referencia: Carnet cotejado, folio 8',{exact:true}).waitFor();
     const [[bitacoraExterna]]=await connection.query("SELECT COUNT(*) n FROM auditoria WHERE entidad='historial_vacunacion' AND entidad_id=?",[externo.id]);assert.equal(bitacoraExterna.n,2);
-    const produccion=await page.evaluate(async({url,today})=>{const r=await fetch(url+'/reportes/vacunas-aplicadas?desde='+today+'&hasta='+today,{headers:{Authorization:'Bearer '+localStorage.getItem('hmgu_token')}});return r.json();},{url:apiUrl,today});assert.equal(produccion.data.filas.length,2);
+    const produccion=await page.evaluate(async({url,today})=>{const r=await fetch(url+'/reportes/vacunas-aplicadas?desde='+today+'&hasta='+today,{credentials:'include'});return r.json();},{url:apiUrl,today});assert.equal(produccion.data.filas.length,2);
     await screenshot('antecedentes-externos');
-    const carnetExterno=await page.evaluate(async({url,id})=>{const r=await fetch(url+'/pacientes/'+id+'/carnet',{headers:{Authorization:'Bearer '+localStorage.getItem('hmgu_token')}});return {status:r.status,tipo:r.headers.get('content-type'),bytes:(await r.arrayBuffer()).byteLength};},{url:apiUrl,id:minor.id});
+    const carnetExterno=await page.evaluate(async({url,id})=>{const r=await fetch(url+'/pacientes/'+id+'/carnet',{credentials:'include'});return {status:r.status,tipo:r.headers.get('content-type'),bytes:(await r.arrayBuffer()).byteLength};},{url:apiUrl,id:minor.id});
     assert.equal(carnetExterno.status,200);assert.match(carnetExterno.tipo,/pdf/);assert.ok(carnetExterno.bytes>1000);
     ok('antecedentes externos desde pantalla, duplicación concurrente rechazada, corrección auditada, carnet y producción hospitalaria sin alterar stock');
     phase='prerregistro y confirmación de identidad';
@@ -344,6 +344,10 @@ async function screenshot(name) { await page.screenshot({path:path.join(evidence
     ok('pantalla móvil oscura y ausencia de errores JavaScript');
 
   } catch(error) {
+    if(page){
+      const diagnostico=await page.evaluate(()=>({url:location.href,titulo:document.title,texto:document.body?.innerText?.slice(0,500),html:document.documentElement?.outerHTML?.slice(0,1000),recursos:performance.getEntriesByType('resource').map(r=>({name:r.name,duration:r.duration,bytes:r.transferSize}))})).catch(()=>null);
+      if(diagnostico)console.error('DIAGNÓSTICO E2E:',JSON.stringify(diagnostico));
+    }
     if(page&&evidence){await screenshot('fallo').catch(()=>{});await fs.writeFile(path.join(evidence,'fallo.txt'),`Etapa: ${phase}\n${error.stack}\nErrores: ${failures.join('\n')}`).catch(()=>{});}
     console.error('FALLO E2E:',phase,error.message);console.error('EVIDENCIA:',evidence);process.exitCode=1;
   } finally {

@@ -231,10 +231,11 @@ test('HTTP valida las nuevas opciones y devuelve 409 para CI duplicado sin dupli
       body: JSON.stringify({ login: 'registro' + tag, password }),
     });
     assert.equal(login.status, 200);
-    const token = (await login.json()).data.token;
+    await login.json();
+    const cookie = login.headers.get('set-cookie').split(';')[0];
     async function post(body, expected) {
       const response = await fetch(url + '/pacientes', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        method: 'POST', headers: { 'Content-Type': 'application/json', Cookie: cookie },
         body: JSON.stringify(body),
       });
       const json = await response.json();

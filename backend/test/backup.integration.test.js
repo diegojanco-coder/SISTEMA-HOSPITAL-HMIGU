@@ -9,7 +9,7 @@ const { db } = require('../src/config/env');
 const { runBackup } = require('../src/services/backup.service');
 const { verifyBackup, inspectSchema } = require('../src/services/backupVerification.service');
 
-let c, directory, source, created = false, file, schema, initialTemporary;
+let c, directory, source, created = false, file, schema, initialTemporary, mariaDb = false;
 async function temporaryObjects() {
   const [databases] = await c.query("SELECT SCHEMA_NAME n FROM information_schema.schemata WHERE SCHEMA_NAME REGEXP '^hmguverify[0-9a-f]{24}$' ORDER BY SCHEMA_NAME");
   const [users] = await c.query("SELECT User n, Host h FROM mysql.user WHERE User REGEXP '^hmguverify[0-9a-f]{16}$' ORDER BY User, Host");
@@ -19,7 +19,7 @@ async function assertUntouched() {
   assert.deepEqual(await temporaryObjects(), initialTemporary);
   const [[row]] = await c.query(`SELECT texto, valor, fecha FROM ${mysql.escapeId(source)}.padres WHERE id=1`);
   assert.equal(row.texto, "Texto ficticio: niño, ñ y 'comillas' 🏥");
-  assert.deepEqual(row.valor, { prueba: true, dosis: 2 });
+  assert.deepEqual(typeof row.valor === 'string' ? JSON.parse(row.valor) : row.valor, { prueba: true, dosis: 2 });
   assert.equal(row.fecha, '2024-02-29');
   const [[count]] = await c.query(`SELECT COUNT(*) total FROM ${mysql.escapeId(source)}.hijos`);
   assert.equal(count.total, 2);
@@ -31,6 +31,8 @@ async function assertUntouched() {
 }
 before(async () => {
   c = await mysql.createConnection({ host: db.host, port: db.port, user: db.user, password: db.password, dateStrings: true });
+  const [[server]] = await c.query('SELECT VERSION() version');
+  mariaDb = /MariaDB/i.test(server.version);
   initialTemporary = await temporaryObjects();
   source = 'hmguverifyfixture' + randomBytes(8).toString('hex');
   assert.match(source, /^hmguverifyfixture[a-f0-9]{16}$/);
@@ -124,14 +126,14 @@ test('rechaza la pérdida de una clave única o un cambio de regla referencial',
 
 test('rechaza la pérdida, desactivación o modificación de un CHECK en la estructura restaurada', async () => {
   const check = schema.checks.find(item => item.nombre === 'ck_historial_documento');
-  assert.equal(check.aplicada, 'YES');
+  assert.ok(check.aplicada === 'YES' || (mariaDb && check.aplicada === null));
   assert.match(check.condicion, /documento_referencia/);
   const content = await fs.readFile(file.ruta, 'utf8');
-  for (const [name, statement] of [
-    ['sin-check.sql', 'ALTER TABLE historial_vacunacion DROP CHECK ck_historial_documento;'],
-    ['check-desactivado.sql', 'ALTER TABLE historial_vacunacion ALTER CHECK ck_historial_documento NOT ENFORCED;'],
-    ['check-modificado.sql', "ALTER TABLE historial_vacunacion DROP CHECK ck_historial_documento; ALTER TABLE historial_vacunacion ADD CONSTRAINT ck_historial_documento CHECK (origen IN ('local','externo'));"]
-  ]) {
+  const quitarCheck = mariaDb ? 'DROP CONSTRAINT ck_historial_documento' : 'DROP CHECK ck_historial_documento';
+  const cambios = mariaDb
+    ? [['sin-check.sql', `ALTER TABLE historial_vacunacion ${quitarCheck};`], ['check-modificado.sql', `ALTER TABLE historial_vacunacion ${quitarCheck}; ALTER TABLE historial_vacunacion ADD CONSTRAINT ck_historial_documento CHECK (origen IN ('local','externo'));`]]
+    : [['sin-check.sql', `ALTER TABLE historial_vacunacion ${quitarCheck};`], ['check-desactivado.sql', 'ALTER TABLE historial_vacunacion ALTER CHECK ck_historial_documento NOT ENFORCED;'], ['check-modificado.sql', `ALTER TABLE historial_vacunacion ${quitarCheck}; ALTER TABLE historial_vacunacion ADD CONSTRAINT ck_historial_documento CHECK (origen IN ('local','externo'));`]];
+  for (const [name, statement] of cambios) {
     const altered = path.join(directory, name);
     await fs.writeFile(altered, content.replace(/\n-- Dump completed on/, `\n${statement}\n-- Dump completed on`));
     await assert.rejects(verifyBackup({ file: altered, directory, expectedSchema: schema }), { code: 'ESTRUCTURA_DIFERENTE' });
@@ -141,15 +143,16 @@ test('rechaza la pérdida, desactivación o modificación de un CHECK en la estr
 
 test('rechaza un origen contradictorio aun con claves válidas y sin comparar una estructura de referencia', async () => {
   const content = await fs.readFile(file.ruta, 'utf8');
+  const desactivarCheck = mariaDb ? 'SET SESSION check_constraint_checks=0;' : 'ALTER TABLE historial_vacunacion ALTER CHECK ck_historial_documento NOT ENFORCED;';
   for (const [name, statement] of [
     ['externo-cita.sql', 'UPDATE historial_vacunacion SET cita_id=1 WHERE id=2;'],
     ['externo-lote.sql', 'UPDATE historial_vacunacion SET lote_vacuna_id=1 WHERE id=2;'],
     ['local-sin-cita.sql', 'UPDATE historial_vacunacion SET cita_id=NULL WHERE id=1;'],
     ['local-sin-lote.sql', 'UPDATE historial_vacunacion SET lote_vacuna_id=NULL WHERE id=1;'],
     ['externo-sin-centro.sql', "UPDATE historial_vacunacion SET establecimiento='   ' WHERE id=2;"],
-    ['externo-sin-documento.sql', 'ALTER TABLE historial_vacunacion ALTER CHECK ck_historial_documento NOT ENFORCED; UPDATE historial_vacunacion SET documento_referencia=NULL WHERE id=2;'],
-    ['externo-documento-vacio.sql', "ALTER TABLE historial_vacunacion ALTER CHECK ck_historial_documento NOT ENFORCED; UPDATE historial_vacunacion SET documento_referencia='   ' WHERE id=2;"],
-    ['local-documento.sql', "ALTER TABLE historial_vacunacion ALTER CHECK ck_historial_documento NOT ENFORCED; UPDATE historial_vacunacion SET documento_referencia='Documento ficticio' WHERE id=1;"]
+    ['externo-sin-documento.sql', `${desactivarCheck} UPDATE historial_vacunacion SET documento_referencia=NULL WHERE id=2;`],
+    ['externo-documento-vacio.sql', `${desactivarCheck} UPDATE historial_vacunacion SET documento_referencia='   ' WHERE id=2;`],
+    ['local-documento.sql', `${desactivarCheck} UPDATE historial_vacunacion SET documento_referencia='Documento ficticio' WHERE id=1;`]
   ]) {
     const altered = path.join(directory, name);
     await fs.writeFile(altered, content.replace(/\n-- Dump completed on/, `\n${statement}\n-- Dump completed on`));

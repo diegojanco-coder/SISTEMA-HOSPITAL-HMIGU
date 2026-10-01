@@ -6,6 +6,7 @@ const motor = require('./motorVacunacion.service');
 const { crearDocumentoConEncabezado, dibujarTablaSimple, AZUL } = require('../utils/pdf.util');
 const { generarQRBuffer } = require('../utils/qr.util');
 const { formatearEdad } = require('../utils/edad.util');
+const { qrSecret } = require('../config/env');
 
 class CarnetError extends Error {
   constructor(message, status = 404) {
@@ -20,8 +21,18 @@ class CarnetError extends Error {
  * de firma digital, pero permite validar que el PDF corresponde a un
  * paciente específico del sistema.
  */
-function generarCodigoVerificacion(pacienteId) {
-  return crypto.createHash('sha256').update(`carnet-${pacienteId}-${process.env.JWT_SECRET || 'hmgu'}`).digest('hex').slice(0, 12).toUpperCase();
+function generarCodigoVerificacion(codigoPaciente, fechaEmision) {
+  return crypto.createHmac('sha256', qrSecret)
+    .update(JSON.stringify({ cod_paciente: String(codigoPaciente), fecha_emision: fechaEmision }))
+    .digest('hex');
+}
+
+function generarPayloadFirmado(codigoPaciente, fechaEmision = new Date().toISOString().slice(0, 10)) {
+  return {
+    cod_paciente: codigoPaciente,
+    hash_validacion: generarCodigoVerificacion(codigoPaciente, fechaEmision),
+    fecha_emision: fechaEmision
+  };
 }
 
 async function generarCarnetPDF(pacienteId) {
@@ -33,10 +44,8 @@ async function generarCarnetPDF(pacienteId) {
   const historial = await historialModel.findByPacienteId(pacienteId);
   const { edad, detalle, advertencia } = motor.evaluarEsquema(paciente, catalogoDosis, historial);
 
-  const codigoVerificacion = generarCodigoVerificacion(pacienteId);
-  const qrBuffer = await generarQRBuffer(
-    `HMGU-CARNET|paciente:${paciente.codigo_paciente}|verificacion:${codigoVerificacion}`
-  );
+  const payloadQR = generarPayloadFirmado(paciente.codigo_paciente);
+  const qrBuffer = await generarQRBuffer(JSON.stringify(payloadQR));
 
   const doc = crearDocumentoConEncabezado(
     'Carnet Digital de Vacunación',
@@ -53,7 +62,7 @@ async function generarCarnetPDF(pacienteId) {
   }
 
   doc.image(qrBuffer, doc.page.width - 140, 118, { width: 90, height: 90 });
-  doc.fontSize(7).fillColor('#666666').text(`Verificación: ${codigoVerificacion}`, doc.page.width - 140, 210, { width: 90, align: 'center' });
+  doc.fontSize(7).fillColor('#666666').text(`Firma: ${payloadQR.hash_validacion.slice(0, 16)}…`, doc.page.width - 140, 210, { width: 90, align: 'center' });
   doc.fillColor('#000000');
 
   // Historial completo (aplicadas)
@@ -118,4 +127,4 @@ async function generarCarnetPDF(pacienteId) {
   return doc; // El controlador se encarga de doc.pipe(res) y doc.end()
 }
 
-module.exports = { generarCarnetPDF, generarCodigoVerificacion, CarnetError };
+module.exports = { generarCarnetPDF, generarCodigoVerificacion, generarPayloadFirmado, CarnetError };

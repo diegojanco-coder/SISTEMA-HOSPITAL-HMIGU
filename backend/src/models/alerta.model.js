@@ -1,13 +1,13 @@
 const { pool } = require('../config/db');
 
-async function upsert({ pacienteId, dosisId, estadoSemaforo, fechaLimite, mensaje }) {
+async function upsert({ pacienteId, dosisId, estadoSemaforo, estadoDosis, fechaLimite, mensaje }) {
   const [previas] = await pool.query('SELECT estado_semaforo, mensaje FROM alertas WHERE paciente_id = ? AND dosis_id = ?', [pacienteId, dosisId]);
   await pool.query(
-    `INSERT INTO alertas (paciente_id, dosis_id, estado_semaforo, fecha_limite, mensaje)
-     VALUES (?, ?, ?, ?, ?)
+    `INSERT INTO alertas (paciente_id, dosis_id, estado_semaforo, estado_dosis, fecha_limite, mensaje)
+     VALUES (?, ?, ?, ?, ?, ?)
      ON DUPLICATE KEY UPDATE estado_semaforo = VALUES(estado_semaforo),
-       fecha_limite = VALUES(fecha_limite), mensaje = VALUES(mensaje), updated_at = NOW()`,
-    [pacienteId, dosisId, estadoSemaforo, fechaLimite, mensaje]
+       estado_dosis = VALUES(estado_dosis), fecha_limite = VALUES(fecha_limite), mensaje = VALUES(mensaje), updated_at = NOW()`,
+    [pacienteId, dosisId, estadoSemaforo, estadoDosis, fechaLimite, mensaje]
   );
   return !previas[0] || previas[0].estado_semaforo !== estadoSemaforo || previas[0].mensaje !== mensaje;
 }

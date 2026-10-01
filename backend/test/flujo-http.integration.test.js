@@ -9,10 +9,11 @@ test('flujo HTTP: login, permisos, paciente, catálogo, regla, lote, aplicación
  for(const rol of ['administrador','enfermero'])await c.query('INSERT INTO usuarios(nombre_completo,email,username,password_hash,rol) VALUES (?,?,?,?,?)',['Prueba',`${rol}${tag}@example.invalid`,rol+tag,hash,rol]);
  pool.query=c.query.bind(c);pool.getConnection=async()=>({query:c.query.bind(c),beginTransaction:()=>c.query('SAVEPOINT http_op'),commit:async()=>{},rollback:()=>c.query('ROLLBACK TO SAVEPOINT http_op'),release:()=>{}});
  server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));const base=`http://127.0.0.1:${server.address().port}/api/v1`;
- async function req(path,token,method='GET',body){return fetch(base+path,{method,headers:{'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{})},...(body?{body:JSON.stringify(body)}:{})});}
+ async function req(path,token,method='GET',body){return fetch(base+path,{method,headers:{'Content-Type':'application/json',...(token?{Cookie:token}:{})},...(body?{body:JSON.stringify(body)}:{})});}
  async function json(path,token,method='GET',body,status=200){const r=await req(path,token,method,body);const j=await r.json();assert.equal(r.status,status,`${method} ${path}: ${j.message}`);return j.data;}
  assert.equal((await req('/pacientes')).status,401);
- const a=await json('/auth/login',null,'POST',{login:'administrador'+tag,password});const n=await json('/auth/login',null,'POST',{login:'enfermero'+tag,password});const admin=a.token,nurse=n.token;
+ async function iniciar(login){const r=await req('/auth/login',null,'POST',{login,password});const j=await r.json();assert.equal(r.status,200,j.message);return {cookie:r.headers.get('set-cookie').split(';')[0],usuario:j.data.usuario};}
+ const sesionAdmin=await iniciar('administrador'+tag),sesionNurse=await iniciar('enfermero'+tag),admin=sesionAdmin.cookie,nurse=sesionNurse.cookie;
  await json('/auth/me',nurse);assert.equal((await req('/usuarios',nurse)).status,403);assert.equal((await req('/vacunas/dosis/1/calendario',nurse,'PUT',{})).status,403);
  // Regression: ordinary passwords containing digits must be accepted.
  const u=await json('/usuarios',admin,'POST',{nombreCompleto:'Usuario Temporal',email:`nuevo${tag}@example.invalid`,username:'nuevo'+tag,password,rol:'enfermero'},201);assert.ok(u.id);
@@ -92,7 +93,7 @@ test('flujo HTTP: login, permisos, paciente, catálogo, regla, lote, aplicación
  const historialFinal=await json('/historial/paciente/'+p.id,nurse);
  assert.equal(historialFinal.length,2);assert.equal(historialFinal.find(x=>x.id===registro.id).aplicado_por,null);
  assert.equal((await json(`/pacientes/${p.id}/esquema`,nurse)).detalle.find(x=>x.dosisId===externa.id).estado,'aplicada');
- await c.query("UPDATE usuarios SET estado='inactivo' WHERE id=?",[n.usuario.id]);assert.equal((await req('/pacientes',nurse)).status,401);
+ await c.query("UPDATE usuarios SET estado='inactivo' WHERE id=?",[sesionNurse.usuario.id]);assert.equal((await req('/pacientes',nurse)).status,401);
  }finally{
  if(server)await new Promise(r=>server.close(r));pool.query=query;pool.getConnection=getConnection;await c.rollback();c.release();
  }

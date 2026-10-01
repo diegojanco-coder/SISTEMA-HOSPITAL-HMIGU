@@ -1,5 +1,6 @@
 const pacienteService = require('../services/paciente.service');
 const alertaService = require('../services/alerta.service');
+const unificacionService = require('../services/unificacionPaciente.service');
 const { ok, created, fail } = require('../utils/response.util');
 
 async function listar(req, res, next) {
@@ -64,4 +65,13 @@ async function eliminar(req, res, next) {
   } catch (error) { return next(error); }
 }
 
-module.exports = { listar, buscar, obtener, obtenerEsquema, crear, actualizar, eliminar };
+async function unificar(req,res,next){
+  try{
+    const resultado=await unificacionService.unificar(req.body.origenId,req.body.destinoId,
+      {usuarioId:req.usuario.id,ip:req.ip,userAgent:req.headers['user-agent']});
+    await alertaService.generarAlertasPaciente(req.body.destinoId).catch(error=>console.error('[ALERTAS] Unificación completada; actualización pendiente:',error.message));
+    return ok(res,resultado,'Historiales unificados correctamente');
+  }catch(error){return next(error);}
+}
+
+module.exports = { listar, buscar, obtener, obtenerEsquema, crear, actualizar, eliminar, unificar };

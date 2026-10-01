@@ -30,6 +30,7 @@ export interface DatosPaciente {
   nombres: string;
   apellidos: string;
   carnetIdentidad?: string;
+  certificadoNacimiento?: string;
   fechaNacimiento: string;
   sexo: 'M' | 'F';
   direccion?: string;

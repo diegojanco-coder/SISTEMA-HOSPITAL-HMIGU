@@ -3,6 +3,7 @@ test('instalación nueva y actualización repetible en base temporal aislada',as
  const nombre='hmgu_test_install_'+randomBytes(6).toString('hex');assert.match(nombre,/^hmgu_test_install_[a-f0-9]{12}$/);
  const c=await mysql.createConnection({...db,database:undefined});let creada=false;
  try{
+ const [[motor]]=await c.query('SELECT VERSION() version');
  const [[existe]]=await c.query('SELECT COUNT(*) n FROM information_schema.schemata WHERE schema_name=?',[nombre]);assert.equal(existe.n,0);
  const cwd=path.resolve(__dirname,'..');
  function run(script,args=[]){return spawnSync(process.execPath,[script,...args],{cwd,env:{...process.env,DB_NAME:nombre},encoding:'utf8',windowsHide:true,timeout:30000});}
@@ -11,7 +12,8 @@ test('instalación nueva y actualización repetible en base temporal aislada',as
  await c.query(`ALTER TABLE ${nombre}.pacientes DROP COLUMN identidad_provisional,DROP COLUMN registro_pendiente,DROP COLUMN contacto_alertas`);
  await c.query(`ALTER TABLE ${nombre}.tutores MODIFY carnet_identidad VARCHAR(20) NOT NULL,MODIFY email VARCHAR(150) NOT NULL`);
  // Simula una instalación anterior con una aplicación real antes de actualizar.
- await c.query(`ALTER TABLE ${nombre}.historial_vacunacion DROP CHECK ck_historial_documento, DROP COLUMN origen, DROP COLUMN documento_referencia, MODIFY cita_id INT UNSIGNED NOT NULL, MODIFY lote_vacuna_id INT UNSIGNED NOT NULL`);
+ const eliminarCheck=/MariaDB/i.test(motor.version)?'DROP CONSTRAINT ck_historial_documento':'DROP CHECK ck_historial_documento';
+ await c.query(`ALTER TABLE ${nombre}.historial_vacunacion ${eliminarCheck}, DROP COLUMN origen, DROP COLUMN documento_referencia, MODIFY cita_id INT UNSIGNED NOT NULL, MODIFY lote_vacuna_id INT UNSIGNED NOT NULL`);
  const [[paciente]]=await c.query(`SELECT id FROM ${nombre}.pacientes LIMIT 1`);
  const [[usuario]]=await c.query(`SELECT id FROM ${nombre}.usuarios LIMIT 1`);
  const [[dosis]]=await c.query(`SELECT id,vacuna_id FROM ${nombre}.dosis LIMIT 1`);
@@ -33,7 +35,7 @@ test('instalación nueva y actualización repetible en base temporal aislada',as
  const [[stock]]=await c.query(`SELECT cantidad_disponible n FROM ${nombre}.lotes_vacuna WHERE id=?`,[lote.insertId]);assert.equal(stock.n,7);
  const [campos]=await c.query(`SHOW COLUMNS FROM ${nombre}.historial_vacunacion`);
  assert.equal(campos.find(x=>x.Field==='cita_id').Null,'YES');assert.equal(campos.find(x=>x.Field==='lote_vacuna_id').Null,'YES');
- await assert.rejects(c.query(`UPDATE ${nombre}.historial_vacunacion SET origen='externo',documento_referencia=NULL WHERE id=?`,[historial.insertId]),e=>e.code==='ER_CHECK_CONSTRAINT_VIOLATED');
+ await assert.rejects(c.query(`UPDATE ${nombre}.historial_vacunacion SET origen='externo',documento_referencia=NULL WHERE id=?`,[historial.insertId]),e=>e.code==='ER_CHECK_CONSTRAINT_VIOLATED'||e.code==='ER_CONSTRAINT_FAILED'||/CONSTRAINT.*ck_historial_documento/i.test(e.message));
  const [[dose]]=await c.query(`SELECT d.edad_recomendada_valor edad FROM ${nombre}.dosis d JOIN ${nombre}.vacunas v ON v.id=d.vacuna_id WHERE v.nombre_corto='SRP' AND d.numero_dosis=2`);assert.equal(dose.edad,18);
  const refused=run('src/database/runMigrations.js',['--seed']);assert.notEqual(refused.status,0);assert.match(refused.stderr,/ya existe/);
  }finally{if(creada)await c.query(`DROP DATABASE IF EXISTS ${nombre}`);await c.end();}

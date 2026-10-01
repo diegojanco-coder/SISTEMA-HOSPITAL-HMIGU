@@ -57,7 +57,9 @@ async function guardar(id, data) {
   const previo = id ? await pacienteModel.findById(id, conn) : null;
   if (id && !previo) throw new PacienteError('Paciente no encontrado',404);
   const [vinculos] = id ? await conn.query("SELECT t.*,pt.es_principal FROM tutores t JOIN paciente_tutor pt ON pt.tutor_id=t.id WHERE pt.paciente_id=? AND pt.estado='activo' AND t.estado='activo' ORDER BY pt.es_principal DESC,t.id FOR UPDATE",[id]) : [[]];
-  const datos = {...data, departamento:data.departamento ?? previo?.departamento, esDependiente:data.esDependiente ?? Boolean(previo?.es_dependiente), tieneTutor:vinculos.length>0};
+  const datos = {...data, departamento:data.departamento ?? previo?.departamento,
+    certificadoNacimiento:data.certificadoNacimiento ?? previo?.certificado_nacimiento ?? '',
+    esDependiente:data.esDependiente ?? Boolean(previo?.es_dependiente), tieneTutor:vinculos.length>0};
   validarReglasPaciente(datos);
   const menor = calcularEdadExacta(datos.fechaNacimiento).anios < 18;
   if (data.tipoPaciente && data.tipoPaciente !== (menor ? 'menor' : 'adulto')) throw new PacienteError('La fecha de nacimiento no corresponde al tipo de paciente seleccionado');
@@ -66,6 +68,17 @@ async function guardar(id, data) {
   if (datos.identidadProvisional) {
     datos.nombres = 'Recién nacido';
     datos.apellidos = datos.apellidos?.trim() || 'Por confirmar';
+  }
+  datos.carnetIdentidad = datos.carnetIdentidad?.trim() || '';
+  datos.certificadoNacimiento = datos.certificadoNacimiento?.trim().toUpperCase() || '';
+  if (datos.carnetIdentidad || datos.certificadoNacimiento) {
+    const condiciones=[]; const parametros=[];
+    if(datos.carnetIdentidad){condiciones.push('carnet_identidad=?');parametros.push(datos.carnetIdentidad);}
+    if(datos.certificadoNacimiento){condiciones.push('certificado_nacimiento=?');parametros.push(datos.certificadoNacimiento);}
+    if(id){parametros.push(id);}
+    const [duplicados]=await conn.query(`SELECT id,codigo_paciente,carnet_identidad,certificado_nacimiento FROM pacientes
+      WHERE (${condiciones.join(' OR ')})${id?' AND id<>?':''} LIMIT 1 FOR UPDATE`,parametros);
+    if(duplicados.length)throw new PacienteError(`Ya existe el paciente ${duplicados[0].codigo_paciente} con ese documento`,409);
   }
   datos.contactoAlertas = data.contactoAlertas || (menor || datos.esDependiente ? 'tutor' : 'paciente');
   if (!['paciente','tutor'].includes(datos.contactoAlertas) || (menor && datos.contactoAlertas !== 'tutor') ||

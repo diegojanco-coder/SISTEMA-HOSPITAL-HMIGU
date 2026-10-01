@@ -46,6 +46,7 @@ CREATE TABLE pacientes (
     nombres             VARCHAR(100)        NOT NULL,
     apellidos           VARCHAR(100)        NOT NULL,
     carnet_identidad    VARCHAR(20)         NULL,
+    certificado_nacimiento VARCHAR(50)      NULL,
     es_dependiente      TINYINT(1) NOT NULL DEFAULT 0,
     identidad_provisional TINYINT(1) NOT NULL DEFAULT 0,
     registro_pendiente   TINYINT(1) NOT NULL DEFAULT 0,
@@ -63,6 +64,7 @@ CREATE TABLE pacientes (
     updated_at          DATETIME            NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT uq_pacientes_codigo UNIQUE (codigo_paciente),
     CONSTRAINT uq_pacientes_ci UNIQUE (carnet_identidad),
+    CONSTRAINT uq_pacientes_certificado UNIQUE (certificado_nacimiento),
     CONSTRAINT fk_pacientes_usuario FOREIGN KEY (creado_por) REFERENCES usuarios(id)
         ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB;
@@ -169,6 +171,20 @@ CREATE TABLE lotes_vacuna (
 
 CREATE INDEX idx_lotes_disponibles ON lotes_vacuna (vacuna_id, fecha_vencimiento, cantidad_disponible);
 
+CREATE TABLE mermas_lote (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    lote_id INT UNSIGNED NOT NULL,
+    usuario_id INT UNSIGNED NOT NULL,
+    cantidad_dosis_perdidas INT UNSIGNED NOT NULL,
+    motivo ENUM('frasco_abierto_vencido','rotura_accidental','falla_cadena_frio','otro') NOT NULL,
+    observaciones TEXT NULL,
+    fecha_registro DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT ck_merma_cantidad CHECK (cantidad_dosis_perdidas > 0),
+    CONSTRAINT fk_merma_lote FOREIGN KEY (lote_id) REFERENCES lotes_vacuna(id) ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_merma_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB;
+CREATE INDEX idx_mermas_lote_fecha ON mermas_lote (lote_id, fecha_registro);
+
 -- ---------------------------------------------------------------------
 -- Tabla: citas (una atención; puede incluir varias dosis aplicadas)
 -- ---------------------------------------------------------------------
@@ -229,6 +245,7 @@ CREATE TABLE alertas (
     paciente_id         INT UNSIGNED  NOT NULL,
     dosis_id            INT UNSIGNED  NOT NULL,
     estado_semaforo     ENUM('verde','amarillo','rojo') NOT NULL,
+    estado_dosis        ENUM('proxima','pendiente','atrasada') NULL,
     fecha_limite        DATE          NOT NULL,
     mensaje             VARCHAR(255)  NOT NULL,
     leida               TINYINT(1)    NOT NULL DEFAULT 0,
@@ -292,8 +309,11 @@ CREATE TABLE IF NOT EXISTS notificaciones_email (
 ) ENGINE=InnoDB;
 CREATE TABLE IF NOT EXISTS notificacion_intentos (
  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
- notificacion_id BIGINT UNSIGNED NOT NULL,
- resultado ENUM('enviado','error') NOT NULL,
+ notificacion_id BIGINT UNSIGNED NULL,
+ canal ENUM('email','whatsapp') NOT NULL DEFAULT 'email',
+ destinatario VARCHAR(50) NULL,
+ mensaje VARCHAR(500) NULL,
+ resultado ENUM('enviado','error','fallido') NOT NULL,
  codigo_error VARCHAR(100) NULL,
  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
  FOREIGN KEY (notificacion_id) REFERENCES notificaciones_email(id)

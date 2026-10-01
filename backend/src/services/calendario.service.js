@@ -51,8 +51,9 @@ async function guardar(id,data,actor={}) {
   regla.version=data.version+1;
   await db.query('UPDATE dosis SET regla_calendario=?,edad_recomendada_valor=?,edad_recomendada_unidad=?,tolerancia_dias=? WHERE id=?',[JSON.stringify(regla),data.edadValor,data.edadUnidad,data.toleranciaDias,id]);
   const [[nuevo]]=await db.query('SELECT * FROM dosis WHERE id=?',[id]);
-  await auditoria.create({usuarioId:actor.usuarioId||null,accion:'EDITAR',entidad:'calendario',entidadId:id,datosPrevios:actual,datosNuevos:nuevo,ip:actor.ip,userAgent:actor.userAgent},db);
-  return nuevo;
+  const resultado={...nuevo,regla_calendario:typeof nuevo.regla_calendario==='string'?JSON.parse(nuevo.regla_calendario):nuevo.regla_calendario};
+  await auditoria.create({usuarioId:actor.usuarioId||null,accion:'EDITAR',entidad:'calendario',entidadId:id,datosPrevios:actual,datosNuevos:resultado,ip:actor.ip,userAgent:actor.userAgent},db);
+  return resultado;
  });
 }
 module.exports={guardar,validarRegla,CalendarioError};

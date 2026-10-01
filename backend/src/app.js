@@ -5,7 +5,7 @@ const morgan = require('morgan');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 
-const { frontendUrl, env, serveFrontend, frontendDist } = require('./config/env');
+const { frontendUrl, frontendOrigins, env, serveFrontend, frontendDist } = require('./config/env');
 const apiRoutes = require('./routes');
 const { errorMiddleware, notFoundMiddleware } = require('./middlewares/error.middleware');
 const sanitizarEntrada = require('./middlewares/sanitize.middleware');
@@ -21,10 +21,16 @@ app.use(helmet({contentSecurityPolicy:{directives:{
 }}}));
 
 // CORS restringido al dominio del frontend
-app.use(cors({
-  origin: frontendUrl,
+app.use((req, res, next) => cors({
+  origin(origin, callback) {
+    const origenPropio = `${req.protocol}://${req.get('host')}`;
+    if (!origin || origin === origenPropio || frontendOrigins.includes(origin)) return callback(null, true);
+    const error = new Error('Origen no permitido por la política CORS');
+    error.status = 403;
+    return callback(error);
+  },
   credentials: true
-}));
+})(req, res, next));
 
 // Límite de tasa de peticiones (protección básica ante fuerza bruta / abuso)
 const limiter = rateLimit({

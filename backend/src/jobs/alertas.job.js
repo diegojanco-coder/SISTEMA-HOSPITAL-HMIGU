@@ -1,6 +1,7 @@
 const cron = require('node-cron');
 const { alertasCron } = require('../config/env');
 const alertaService = require('../services/alerta.service');
+const notificacionService = require('../services/notificacion.service');
 
 /**
  * Job programado: recalcula el semáforo de alertas de todos los
@@ -11,6 +12,8 @@ function programarJobAlertas() {
     try {
       const { procesados } = await alertaService.generarAlertasTodos();
       console.log(`[JOB alertas] Alertas recalculadas para ${procesados} pacientes.`);
+      const resultado = await notificacionService.procesarAlertasWhatsApp();
+      console.log(`[JOB alertas] WhatsApp: ${resultado.enviados} enviados, ${resultado.fallidos} fallidos, ${resultado.omitidos} omitidos${resultado.mock ? ' (modo MOCK)' : ''}.`);
     } catch (error) {
       console.error('[JOB alertas] Error al recalcular alertas:', error.message);
     }

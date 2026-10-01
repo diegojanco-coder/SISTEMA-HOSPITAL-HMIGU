@@ -19,13 +19,22 @@ class BackupVerificationError extends Error {
 
 // Se inspecciona la estructura, nunca se imprimen registros del paciente.
 async function inspectSchema(connection, database) {
+  const [metadata] = await connection.query(`SELECT TABLE_NAME tabla, COLUMN_NAME columna
+    FROM information_schema.columns
+    WHERE table_schema='information_schema'
+      AND ((table_name='STATISTICS' AND column_name IN ('IS_VISIBLE','EXPRESSION'))
+        OR (table_name='TABLE_CONSTRAINTS' AND column_name='ENFORCED'))`);
+  const hasColumn = (table, column) => metadata.some(item => item.tabla === table && item.columna === column);
+  const indexVisibility = hasColumn('STATISTICS', 'IS_VISIBLE') ? 'IS_VISIBLE' : 'NULL';
+  const indexExpression = hasColumn('STATISTICS', 'EXPRESSION') ? 'EXPRESSION' : 'NULL';
+  const checkEnforced = hasColumn('TABLE_CONSTRAINTS', 'ENFORCED') ? 'tc.ENFORCED' : 'NULL';
   const [tables] = await connection.query('SELECT TABLE_NAME nombre, TABLE_TYPE tipo, ENGINE motor, TABLE_COLLATION collation FROM information_schema.tables WHERE TABLE_SCHEMA=? ORDER BY TABLE_NAME', [database]);
   if (!tables.length || tables.some(t => t.tipo !== 'BASE TABLE')) throw new BackupVerificationError('estructura', 'SOLO_TABLAS');
   const [columns] = await connection.query('SELECT TABLE_NAME tabla, COLUMN_NAME columna, COLUMN_TYPE tipo, IS_NULLABLE nullable, COLUMN_DEFAULT valorInicial, EXTRA extra, COLLATION_NAME collation, GENERATION_EXPRESSION expresion FROM information_schema.columns WHERE TABLE_SCHEMA=? ORDER BY TABLE_NAME, ORDINAL_POSITION', [database]);
   const [keys] = await connection.query('SELECT TABLE_NAME tabla, CONSTRAINT_NAME nombre, COLUMN_NAME columna, REFERENCED_TABLE_NAME referencia, REFERENCED_COLUMN_NAME destino, ORDINAL_POSITION posicion FROM information_schema.key_column_usage WHERE TABLE_SCHEMA=? AND REFERENCED_TABLE_NAME IS NOT NULL ORDER BY TABLE_NAME, CONSTRAINT_NAME, ORDINAL_POSITION', [database]);
-  const [indexes] = await connection.query('SELECT TABLE_NAME tabla, INDEX_NAME nombre, NON_UNIQUE noUnico, SEQ_IN_INDEX posicion, COLUMN_NAME columna, SUB_PART prefijo, INDEX_TYPE tipo, COLLATION orden, IS_VISIBLE visible, EXPRESSION expresion FROM information_schema.statistics WHERE TABLE_SCHEMA=? ORDER BY TABLE_NAME, INDEX_NAME, SEQ_IN_INDEX', [database]);
+  const [indexes] = await connection.query(`SELECT TABLE_NAME tabla, INDEX_NAME nombre, NON_UNIQUE noUnico, SEQ_IN_INDEX posicion, COLUMN_NAME columna, SUB_PART prefijo, INDEX_TYPE tipo, COLLATION orden, ${indexVisibility} visible, ${indexExpression} expresion FROM information_schema.statistics WHERE TABLE_SCHEMA=? ORDER BY TABLE_NAME, INDEX_NAME, SEQ_IN_INDEX`, [database]);
   const [relations] = await connection.query('SELECT TABLE_NAME tabla, CONSTRAINT_NAME nombre, UPDATE_RULE alActualizar, DELETE_RULE alEliminar FROM information_schema.referential_constraints WHERE CONSTRAINT_SCHEMA=? ORDER BY TABLE_NAME, CONSTRAINT_NAME', [database]);
-  const [checks] = await connection.query(`SELECT tc.TABLE_NAME tabla, tc.CONSTRAINT_NAME nombre, cc.CHECK_CLAUSE condicion, tc.ENFORCED aplicada
+  const [checks] = await connection.query(`SELECT tc.TABLE_NAME tabla, tc.CONSTRAINT_NAME nombre, cc.CHECK_CLAUSE condicion, ${checkEnforced} aplicada
     FROM information_schema.table_constraints tc
     JOIN information_schema.check_constraints cc ON cc.CONSTRAINT_SCHEMA=tc.CONSTRAINT_SCHEMA AND cc.CONSTRAINT_NAME=tc.CONSTRAINT_NAME
     WHERE tc.TABLE_SCHEMA=? AND tc.CONSTRAINT_TYPE='CHECK' ORDER BY tc.TABLE_NAME, tc.CONSTRAINT_NAME`, [database]);

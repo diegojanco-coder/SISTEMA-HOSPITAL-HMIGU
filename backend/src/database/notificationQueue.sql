@@ -21,8 +21,11 @@ CREATE TABLE IF NOT EXISTS notificaciones_email (
 ) ENGINE=InnoDB;
 CREATE TABLE IF NOT EXISTS notificacion_intentos (
  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
- notificacion_id BIGINT UNSIGNED NOT NULL,
- resultado ENUM('enviado','error') NOT NULL,
+ notificacion_id BIGINT UNSIGNED NULL,
+ canal ENUM('email','whatsapp') NOT NULL DEFAULT 'email',
+ destinatario VARCHAR(50) NULL,
+ mensaje VARCHAR(500) NULL,
+ resultado ENUM('enviado','error','fallido') NOT NULL,
  codigo_error VARCHAR(100) NULL,
  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
  FOREIGN KEY (notificacion_id) REFERENCES notificaciones_email(id)

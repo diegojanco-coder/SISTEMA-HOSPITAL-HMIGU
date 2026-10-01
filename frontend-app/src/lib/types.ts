@@ -46,6 +46,7 @@ export interface Paciente {
   nombres: string;
   apellidos: string;
   carnet_identidad: string | null;
+  certificado_nacimiento?: string | null;
   fecha_nacimiento: string;
   sexo: 'M' | 'F';
   direccion: string | null;

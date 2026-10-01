@@ -1,10 +1,16 @@
 const vacunaModel = require('../models/vacuna.model');
 const dosisModel = require('../models/dosis.model');
 
+function normalizarDosis(dosis) {
+  if (!dosis?.regla_calendario || typeof dosis.regla_calendario !== 'string') return dosis;
+  try { return { ...dosis, regla_calendario: JSON.parse(dosis.regla_calendario) }; }
+  catch { return { ...dosis, regla_calendario: null }; }
+}
+
 async function listar(filtros) {
   const vacunas = await vacunaModel.findAll(filtros);
   const conDosis = await Promise.all(
-    vacunas.map(async (v) => ({ ...v, dosis: await dosisModel.findByVacunaId(v.id) }))
+    vacunas.map(async (v) => ({ ...v, dosis: (await dosisModel.findByVacunaId(v.id)).map(normalizarDosis) }))
   );
   return conDosis;
 }
@@ -12,7 +18,7 @@ async function listar(filtros) {
 async function obtener(id) {
   const vacuna = await vacunaModel.findById(id);
   if (!vacuna) return null;
-  const dosis = await dosisModel.findByVacunaId(id);
+  const dosis = (await dosisModel.findByVacunaId(id)).map(normalizarDosis);
   return { ...vacuna, dosis };
 }
 

@@ -2,7 +2,7 @@ const { programarDosis }=require('../utils/programacion.util');
 const { evaluarAlcance }=require('../utils/elegibilidad.util');
 const {createHash}=require('node:crypto');
 const {pool}=require('../config/db');
-const {smtp,db:dbConfig}=require('../config/env');
+const {smtp,db:dbConfig,whatsapp}=require('../config/env');
 const correo=require('./correo.service');
 const pacienteModel=require('../models/paciente.model');
 const {resolverContactoPaciente}=require('../utils/contactoPaciente.util');
@@ -69,4 +69,68 @@ async function procesarPendientes(){
   return {enviados};
  }finally{try{if(bloqueado)await db.query('SELECT RELEASE_LOCK(?)',[lock]);}finally{db.release();}}
 }
-module.exports={enviarAlertaVacuna,resumen,procesarPendientes,correoValido};
+
+function normalizarTelefono(value) {
+ const digitos=String(value||'').replace(/\D/g,'');
+ if(!digitos)return null;
+ if(digitos.startsWith('591') && digitos.length===11)return digitos;
+ if(digitos.length===8)return `591${digitos}`;
+ return digitos.length>=10 && digitos.length<=15 ? digitos : null;
+}
+
+async function enviarWhatsApp(payload) {
+ if(!whatsapp.apiKey){
+  console.log('[WHATSAPP MOCK]', JSON.stringify(payload));
+  return {mock:true};
+ }
+ if(!whatsapp.phoneNumberId)throw Object.assign(new Error('WHATSAPP_PHONE_NUMBER_ID no está configurado'),{code:'WHATSAPP_CONFIG'});
+ if(whatsapp.provider==='meta'){
+  const response=await fetch(`https://graph.facebook.com/${whatsapp.apiVersion}/${whatsapp.phoneNumberId}/messages`,{
+   method:'POST',headers:{Authorization:`Bearer ${whatsapp.apiKey}`,'Content-Type':'application/json'},
+   body:JSON.stringify({messaging_product:'whatsapp',to:payload.to,type:'text',text:{body:payload.message}})
+  });
+  if(!response.ok)throw Object.assign(new Error(`Meta WhatsApp respondió ${response.status}`),{code:`META_${response.status}`});
+  return response.json();
+ }
+ if(whatsapp.provider==='twilio'){
+  const [accountSid,authToken]=whatsapp.apiKey.split(':');
+  if(!accountSid||!authToken)throw Object.assign(new Error('Para Twilio use WHATSAPP_API_KEY=ACCOUNT_SID:AUTH_TOKEN'),{code:'TWILIO_CONFIG'});
+  const form=new URLSearchParams({From:`whatsapp:${whatsapp.phoneNumberId}`,To:`whatsapp:+${payload.to}`,Body:payload.message});
+  const response=await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,{
+   method:'POST',headers:{Authorization:`Basic ${Buffer.from(`${accountSid}:${authToken}`).toString('base64')}`,'Content-Type':'application/x-www-form-urlencoded'},body:form
+  });
+  if(!response.ok)throw Object.assign(new Error(`Twilio respondió ${response.status}`),{code:`TWILIO_${response.status}`});
+  return response.json();
+ }
+ throw Object.assign(new Error(`Proveedor WhatsApp no soportado: ${whatsapp.provider}`),{code:'WHATSAPP_PROVIDER'});
+}
+
+async function procesarAlertasWhatsApp(){
+ const [alertas]=await pool.query(`SELECT a.id,a.paciente_id,a.fecha_limite,a.estado_dosis,
+   p.nombres,p.apellidos,p.fecha_nacimiento,p.telefono_contacto,p.contacto_alertas,p.es_dependiente,
+   p.registro_pendiente,p.identidad_provisional,v.nombre vacuna_nombre,d.nombre_dosis
+   FROM alertas a JOIN pacientes p ON p.id=a.paciente_id
+   JOIN dosis d ON d.id=a.dosis_id JOIN vacunas v ON v.id=d.vacuna_id
+   WHERE a.estado_dosis IN ('proxima','pendiente') AND p.estado='activo' AND d.estado='activo' AND v.estado='activo'`);
+ let enviados=0,fallidos=0,omitidos=0;
+ for(const alerta of alertas){
+  const tutores=await pacienteModel.findTutoresByPacienteId(alerta.paciente_id);
+  const telefono=normalizarTelefono(resolverContactoPaciente(alerta,tutores).telefono);
+  const mensaje=`HMGU informa: ${alerta.nombres} ${alerta.apellidos} tiene ${alerta.vacuna_nombre} (${alerta.nombre_dosis}) en estado ${alerta.estado_dosis}. Fecha límite: ${alerta.fecha_limite}. Hospital Materno Germán Urquidi.`;
+  if(telefono){
+   const [[previo]]=await pool.query(`SELECT id FROM notificacion_intentos WHERE canal='whatsapp' AND destinatario=? AND mensaje=? AND DATE(created_at)=CURDATE() LIMIT 1`,[telefono,mensaje]);
+   if(previo){omitidos++;continue;}
+  }
+  let resultado='enviado',codigo=null;
+  try{
+   if(!telefono)throw Object.assign(new Error('El paciente no tiene teléfono válido'),{code:'SIN_TELEFONO'});
+   const respuesta=await enviarWhatsApp({to:telefono,message:mensaje,alertaId:alerta.id,pacienteId:alerta.paciente_id});
+   codigo=respuesta.mock?'MOCK':null;enviados++;
+  }catch(error){resultado='fallido';codigo=String(error.code||'WHATSAPP_ERROR').slice(0,100);fallidos++;}
+  await pool.query(`INSERT INTO notificacion_intentos(notificacion_id,canal,destinatario,mensaje,resultado,codigo_error)
+    VALUES (NULL,'whatsapp',?,?,?,?)`,[telefono,mensaje,resultado,codigo]);
+ }
+ return {enviados,fallidos,omitidos,mock:!whatsapp.apiKey};
+}
+
+module.exports={enviarAlertaVacuna,resumen,procesarPendientes,procesarAlertasWhatsApp,enviarWhatsApp,correoValido,normalizarTelefono};

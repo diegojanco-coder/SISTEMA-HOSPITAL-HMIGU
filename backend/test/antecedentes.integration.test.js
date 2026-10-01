@@ -90,6 +90,6 @@ test('inserción o corrección externa no puede invalidar una dosis posterior ex
 
 test('restricción SQL impide antecedentes sin documento y documento externo en una aplicación local',()=>isolated(async({c,data,actor})=>{
  for(const [origen,documento] of [['externo',null],['externo','   '],['local','Documento externo']]){
-  await assert.rejects(c.query('INSERT INTO historial_vacunacion(paciente_id,dosis_id,usuario_id,fecha_aplicacion,origen,documento_referencia) VALUES (?,?,?,?,?,?)',[data.pacienteId,data.dosisId,actor.usuarioId,data.fechaAplicacion,origen,documento]),e=>e.code==='ER_CHECK_CONSTRAINT_VIOLATED');
+  await assert.rejects(c.query('INSERT INTO historial_vacunacion(paciente_id,dosis_id,usuario_id,fecha_aplicacion,origen,documento_referencia) VALUES (?,?,?,?,?,?)',[data.pacienteId,data.dosisId,actor.usuarioId,data.fechaAplicacion,origen,documento]),e=>['ER_CHECK_CONSTRAINT_VIOLATED','ER_CONSTRAINT_FAILED'].includes(e.code)||/CONSTRAINT.*ck_historial_documento/i.test(e.message));
  }
 }));

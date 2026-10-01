@@ -13,6 +13,7 @@ const auditoriaRoutes = require('./auditoria.routes');
 const backupRoutes = require('./backup.routes');
 const citaRoutes = require('./cita.routes');
 const loteRoutes = require('./lote.routes');
+const reporteAvanzadoRoutes = require('./reporte-avanzado.routes');
 
 const router = Router();
 
@@ -25,6 +26,7 @@ router.use('/vacunas', vacunaRoutes);
 router.use('/historial', historialRoutes);
 router.use('/alertas', alertaRoutes);
 router.use('/reportes', reporteRoutes);
+router.use('/reportes', reporteAvanzadoRoutes);
 router.use('/auditoria', auditoriaRoutes);
 router.use('/backup', backupRoutes);
 router.use('/citas', citaRoutes);

@@ -6,12 +6,22 @@
 const path = require('path');
 const fs = require('fs');
 require('dotenv').config({path:path.resolve(__dirname,'../../.env')});
-const mysqlWindows=path.join(process.env.ProgramFiles || 'C:/Program Files','MySQL','MySQL Server 8.0','bin','mysql.exe');
-const dumpWindows=path.join(process.env.ProgramFiles || 'C:/Program Files','MySQL','MySQL Server 8.0','bin','mysqldump.exe');
+const mysqlWindows=[
+  path.join(process.env.ProgramFiles || 'C:/Program Files','MySQL','MySQL Server 8.0','bin','mysql.exe'),
+  path.join(process.env.ProgramFiles || 'C:/Program Files','MySQL','MySQL Workbench 8.0 CE','mysql.exe')
+].find(fs.existsSync);
+const dumpWindows=[
+  path.join(process.env.ProgramFiles || 'C:/Program Files','MySQL','MySQL Server 8.0','bin','mysqldump.exe'),
+  path.join(process.env.ProgramFiles || 'C:/Program Files','MySQL','MySQL Workbench 8.0 CE','mysqldump.exe')
+].find(fs.existsSync);
 
-if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
-  throw new Error('JWT_SECRET es obligatorio en producción');
+if (process.env.NODE_ENV === 'production' && (!process.env.JWT_SECRET || !process.env.SECRET_KEY)) {
+  throw new Error('JWT_SECRET y SECRET_KEY son obligatorios en producción');
 }
+
+const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+const frontendOrigins = (process.env.FRONTEND_ORIGINS || frontendUrl)
+  .split(',').map((value) => value.trim()).filter(Boolean);
 
 module.exports = {
   env: process.env.NODE_ENV || 'development',
@@ -35,19 +45,34 @@ module.exports = {
     expiresIn: process.env.JWT_EXPIRES_IN || '8h'
   },
 
-  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
+  authCookie: {
+    name: process.env.AUTH_COOKIE_NAME || 'hmgu_session',
+    secure: process.env.COOKIE_SECURE === 'true' || process.env.NODE_ENV === 'production',
+    maxAgeMs: Number(process.env.AUTH_COOKIE_MAX_AGE_MS) || 8 * 60 * 60 * 1000
+  },
+
+  qrSecret: process.env.SECRET_KEY || process.env.JWT_SECRET || 'development-only-qr-secret',
+
+  frontendUrl,
+  frontendOrigins,
 
   bcryptSaltRounds: Number(process.env.BCRYPT_SALT_ROUNDS) || 10,
 
   backup: {
     cron: process.env.BACKUP_CRON || '0 2 * * *',
     dir: process.env.BACKUP_DIR || path.resolve(__dirname,'../../backups'),
-    mysqlPath: process.env.MYSQL_PATH || (process.platform==='win32' && fs.existsSync(mysqlWindows) ? mysqlWindows : 'mysql'),
-    mysqldumpPath: process.env.MYSQLDUMP_PATH || (process.platform==='win32' && fs.existsSync(dumpWindows) ? dumpWindows : 'mysqldump')
+    mysqlPath: process.env.MYSQL_PATH || (process.platform==='win32' && mysqlWindows ? mysqlWindows : 'mysql'),
+    mysqldumpPath: process.env.MYSQLDUMP_PATH || (process.platform==='win32' && dumpWindows ? dumpWindows : 'mysqldump')
   },
 
-  alertasCron: process.env.ALERTAS_CRON || '0 6 * * *'
-  ,smtp: {
+  alertasCron: process.env.ALERTAS_CRON || '0 6 * * *',
+  whatsapp: {
+    provider: (process.env.WHATSAPP_PROVIDER || 'meta').toLowerCase(),
+    apiKey: process.env.WHATSAPP_API_KEY || '',
+    phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID || '',
+    apiVersion: process.env.WHATSAPP_API_VERSION || 'v21.0'
+  },
+  smtp: {
     enabled: process.env.SMTP_ENABLED === 'true',
     host: process.env.SMTP_HOST,
     port: Number(process.env.SMTP_PORT) || 587,

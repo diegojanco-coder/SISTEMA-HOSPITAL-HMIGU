@@ -41,6 +41,7 @@ async function generarAlertasPaciente(pacienteId) {
       pacienteId,
       dosisId: item.dosisId,
       estadoSemaforo: MAPA_SEMAFORO[item.estado],
+      estadoDosis: item.estado,
       fechaLimite: item.fechaLimite,
       mensaje: MENSAJES[item.estado](item.vacunaNombre, item.nombreDosis)
     });

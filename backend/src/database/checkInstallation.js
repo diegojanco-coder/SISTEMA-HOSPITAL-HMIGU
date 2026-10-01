@@ -11,7 +11,9 @@ async function main(){
    if(faltan.length){errores++;console.log(`PENDIENTE: ${tabla}: ${faltan.join(', ')}. Ejecute npm run migrate:upgrade.`);}
   }
   const [historialCampos]=await pool.query("SELECT COLUMN_NAME nombre,IS_NULLABLE nullable FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='historial_vacunacion' AND column_name IN ('cita_id','lote_vacuna_id')");
-  const [[documentoCheck]]=await pool.query("SELECT COUNT(*) n FROM information_schema.table_constraints WHERE constraint_schema=DATABASE() AND table_name='historial_vacunacion' AND constraint_name='ck_historial_documento' AND constraint_type='CHECK' AND enforced='YES'");
+  const [[enforcedColumn]]=await pool.query("SELECT COUNT(*) n FROM information_schema.columns WHERE table_schema='information_schema' AND table_name='TABLE_CONSTRAINTS' AND column_name='ENFORCED'");
+  const checkEnforced=enforcedColumn.n ? " AND enforced='YES'" : '';
+  const [[documentoCheck]]=await pool.query("SELECT COUNT(*) n FROM information_schema.table_constraints WHERE constraint_schema=DATABASE() AND table_name='historial_vacunacion' AND constraint_name='ck_historial_documento' AND constraint_type='CHECK'"+checkEnforced);
   if(historialCampos.length!==2 || historialCampos.some(c=>c.nullable!=='YES') || !documentoCheck.n){errores++;console.log('PENDIENTE: actualización de antecedentes externos. Ejecute npm run migrate:upgrade.');}
   const [tutorCampos]=await pool.query("SELECT COLUMN_NAME nombre,IS_NULLABLE nullable FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='tutores' AND column_name IN ('carnet_identidad','email')");
   if(tutorCampos.length!==2 || tutorCampos.some(c=>c.nullable!=='YES')){errores++;console.log('PENDIENTE: actualización del registro de pacientes. Ejecute npm run migrate:upgrade.');}

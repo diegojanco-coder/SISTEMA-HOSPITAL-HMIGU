@@ -23,6 +23,7 @@ const reglasPaciente = [
   body('fechaNacimiento').trim().notEmpty().withMessage('La fecha de nacimiento es obligatoria').custom(esFechaISOValida).withMessage('La fecha de nacimiento debe tener una fecha válida.'),
   body('fechaNacimiento').custom((valor) => new Date(`${valor}T00:00:00`) <= new Date()).withMessage('La fecha de nacimiento no puede ser una fecha futura.'),
   body('carnetIdentidad').optional({ checkFalsy: true }).trim().matches(CI_REGEX).withMessage('La cédula de identidad debe tener 6 a 8 dígitos y una extensión boliviana válida opcional.'),
+  body('certificadoNacimiento').optional({ checkFalsy: true }).trim().matches(/^[A-Za-z0-9][A-Za-z0-9./-]{4,49}$/).withMessage('El certificado de nacimiento debe contener entre 5 y 50 caracteres válidos.'),
   body('telefonoContacto').optional({ checkFalsy: true }).trim().custom(esTelefonoBoliviano).withMessage('El teléfono debe ser celular boliviano (8 dígitos e iniciar con 6 o 7) o línea fija regional válida.'),
   body('email').optional({ checkFalsy: true }).trim().isLength({ max: 120 }).withMessage('El email no puede exceder los 120 caracteres.').isEmail().withMessage('Por favor, ingrese un correo electrónico válido.'),
   body('departamento').optional({checkFalsy:true}).isIn(['Beni','Chuquisaca','Cochabamba','La Paz','Oruro','Pando','Potosí','Santa Cruz','Tarija']).withMessage('Seleccione un departamento boliviano'),
@@ -41,6 +42,11 @@ const reglasPaciente = [
 
 router.get('/buscar', [search], validar, ctrl.buscar);
 router.get('/', [...pagination, search], validar, ctrl.listar);
+router.post('/unificar', permitirRoles('administrador'), [
+  body('origenId').isInt({min:1}).withMessage('Seleccione el paciente origen.'),
+  body('destinoId').isInt({min:1}).withMessage('Seleccione el paciente destino.'),
+  body().custom(({origenId,destinoId})=>Number(origenId)!==Number(destinoId)).withMessage('Los pacientes deben ser diferentes.')
+], validar, ctrl.unificar);
 router.get('/:id', ctrl.obtener);
 router.get('/:id/esquema', ctrl.obtenerEsquema);
 router.post('/', permitirRoles('administrador', 'enfermero'), reglasPaciente, validar, auditar('CREAR', 'pacientes'), ctrl.crear);

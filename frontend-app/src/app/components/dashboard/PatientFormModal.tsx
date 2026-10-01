@@ -28,7 +28,7 @@ export default function PatientFormModal({ modo, paciente, onClose, onSaved, onV
 }) {
   const [tipo, setTipo] = useState<TipoPaciente | null>(modo === 'editar' ? (edadCalculada(paciente?.fecha_nacimiento?.slice(0, 10) || '')?.anios ?? 18) < 18 ? 'menor' : 'adulto' : null);
   const [paso, setPaso] = useState(1);
-  const [form, setForm] = useState({ nombres: '', apellidos: '', carnetIdentidad: '', fechaNacimiento: '', sexo: 'F' as 'F' | 'M', direccion: '', departamento: '', telefonoContacto: '', email: '', esDependiente: false, identidadProvisional: false });
+  const [form, setForm] = useState({ nombres: '', apellidos: '', carnetIdentidad: '', certificadoNacimiento: '', fechaNacimiento: '', sexo: 'F' as 'F' | 'M', direccion: '', departamento: '', telefonoContacto: '', email: '', esDependiente: false, identidadProvisional: false });
   const [tutorNuevo, setTutorNuevo] = useState<DatosTutor>({ nombres: '', apellidos: '', carnetIdentidad: '', parentesco: 'madre', telefono: '', email: '' });
   const [modoTutor, setModoTutor] = useState<'existente' | 'nuevo'>('existente');
   const [tutorElegido, setTutorElegido] = useState<Tutor | null>(null);
@@ -78,7 +78,7 @@ export default function PatientFormModal({ modo, paciente, onClose, onSaved, onV
       if (!activo) return;
       const menor = (edadCalculada(p.fecha_nacimiento.slice(0, 10))?.anios ?? 18) < 18;
       setTipo(menor ? 'menor' : 'adulto');
-      setForm({ nombres: p.nombres, apellidos: p.apellidos, carnetIdentidad: p.carnet_identidad || '', fechaNacimiento: p.fecha_nacimiento.slice(0, 10), sexo: p.sexo, direccion: p.direccion || '', departamento: p.departamento || '', telefonoContacto: p.telefono_contacto || '', email: p.email || '', esDependiente: Boolean(p.es_dependiente), identidadProvisional: Boolean(p.identidad_provisional) });
+      setForm({ nombres: p.nombres, apellidos: p.apellidos, carnetIdentidad: p.carnet_identidad || '', certificadoNacimiento: p.certificado_nacimiento || '', fechaNacimiento: p.fecha_nacimiento.slice(0, 10), sexo: p.sexo, direccion: p.direccion || '', departamento: p.departamento || '', telefonoContacto: p.telefono_contacto || '', email: p.email || '', esDependiente: Boolean(p.es_dependiente), identidadProvisional: Boolean(p.identidad_provisional) });
       const vinculados = (p.tutores || []).filter(t => t.estado === 'activo');
       const principal = vinculados.find(t => t.es_principal) || vinculados[0] || null;
       setTutorElegido(principal); setSinCorreoTutor(Boolean(principal && !principal.email));
@@ -112,6 +112,7 @@ export default function PatientFormModal({ modo, paciente, onClose, onSaved, onV
     if (!form.identidadProvisional && !form.apellidos.trim()) resultado.apellidos = 'Escribe los apellidos del paciente.';
     else if (errorNombre(form.apellidos, 'apellido')) resultado.apellidos = errorNombre(form.apellidos, 'apellido');
     if (errorCI(form.carnetIdentidad)) resultado.carnetIdentidad = errorCI(form.carnetIdentidad);
+    if (form.certificadoNacimiento && !/^[A-Za-z0-9][A-Za-z0-9./-]{4,49}$/.test(form.certificadoNacimiento)) resultado.certificadoNacimiento = 'Usa entre 5 y 50 letras, números, puntos, barras o guiones.';
     if (!edad) resultado.fechaNacimiento = 'Indica una fecha válida que no sea futura.';
     else if ((tipo === 'menor' && edad.anios >= 18) || (tipo === 'adulto' && edad.anios < 18)) resultado.fechaNacimiento = `La fecha corresponde a ${edad.anios < 18 ? 'un menor' : 'un adulto'}. Cambia el tipo de paciente o corrige la fecha.`;
     return resultado;
@@ -153,7 +154,7 @@ export default function PatientFormModal({ modo, paciente, onClose, onSaved, onV
     if (!confirmado) { setErrores({ confirmado: 'Confirma que revisaste los datos del paciente y su contacto.' }); return; }
     enviando.current = true; setGuardando(true); setErrorMsg(''); setErrores({});
     const payload: DatosPaciente = {
-      ...form, tipoPaciente: tipo, nombres: form.identidadProvisional ? 'Recién nacido' : form.nombres.trim(), apellidos: form.apellidos.trim() || 'Por confirmar', carnetIdentidad: form.carnetIdentidad.trim(),
+      ...form, tipoPaciente: tipo, nombres: form.identidadProvisional ? 'Recién nacido' : form.nombres.trim(), apellidos: form.apellidos.trim() || 'Por confirmar', carnetIdentidad: form.carnetIdentidad.trim(), certificadoNacimiento: form.certificadoNacimiento.trim().toUpperCase(),
       esDependiente: tipo === 'adulto' && form.esDependiente, identidadProvisional: tipo === 'menor' && form.identidadProvisional,
       guardarPrerregistro: pendiente, contactoAlertas: destinatarioTutor ? 'tutor' : 'paciente',
       email: destinatarioTutor || sinCorreoPaciente ? '' : form.email.trim(), telefonoContacto: destinatarioTutor ? '' : form.telefonoContacto.trim(),
@@ -213,6 +214,7 @@ export default function PatientFormModal({ modo, paciente, onClose, onSaved, onV
               {!form.identidadProvisional && <Campo id="registro-nombres" label="Nombres *" error={errores.nombres}><input {...atributos('nombres')} className={inputClass} autoComplete="given-name" maxLength={LIMITES_TEXTO.nombre} value={form.nombres} onChange={e => cambiar('nombres', e.target.value)} /></Campo>}
               <Campo id="registro-apellidos" label={form.identidadProvisional ? 'Referencia familiar / apellidos (opcional)' : 'Apellidos *'} error={errores.apellidos} ayuda={form.identidadProvisional ? 'Si aún no se conoce, se guardará «Por confirmar».' : undefined}><input {...atributos('apellidos')} className={inputClass} autoComplete="family-name" maxLength={LIMITES_TEXTO.apellido} value={form.apellidos} onChange={e => cambiar('apellidos', e.target.value)} /></Campo>
               <Campo id="registro-carnetIdentidad" label="CI del paciente (opcional)" error={errores.carnetIdentidad} ayuda="Déjalo vacío si no tiene documento."><input {...atributos('carnetIdentidad')} className={inputClass} maxLength={LIMITES_TEXTO.ci} value={form.carnetIdentidad} onChange={e => cambiar('carnetIdentidad', e.target.value.toUpperCase())} /></Campo>
+              <Campo id="registro-certificadoNacimiento" label="Certificado de nacimiento (si no tiene CI)" error={errores.certificadoNacimiento}><input {...atributos('certificadoNacimiento')} className={inputClass} maxLength={50} value={form.certificadoNacimiento} onChange={e => cambiar('certificadoNacimiento', e.target.value.toUpperCase())} /></Campo>
               <Campo id="registro-fechaNacimiento" label="Fecha de nacimiento *" error={errores.fechaNacimiento}><input {...atributos('fechaNacimiento')} type="date" max={fechaLocal()} className={inputClass} value={form.fechaNacimiento} onChange={e => cambiar('fechaNacimiento', e.target.value)} />{edad && <p className="mt-1 text-sm text-muted-foreground" aria-live="polite">Edad calculada: {edad.texto}</p>}</Campo>
               <Campo id="registro-sexo" label="Sexo *" error={errores.sexo}><select {...atributos('sexo')} className={inputClass} value={form.sexo} onChange={e => cambiar('sexo', e.target.value as 'M' | 'F')}><option value="F">Femenino</option><option value="M">Masculino</option></select></Campo>
               <Campo id="registro-departamento" label="Departamento de residencia"><select id="registro-departamento" className={inputClass} value={form.departamento} onChange={e => cambiar('departamento', e.target.value)}><option value="">Sin confirmar</option>{['Beni', 'Chuquisaca', 'Cochabamba', 'La Paz', 'Oruro', 'Pando', 'Potosí', 'Santa Cruz', 'Tarija'].map(d => <option key={d}>{d}</option>)}</select></Campo>

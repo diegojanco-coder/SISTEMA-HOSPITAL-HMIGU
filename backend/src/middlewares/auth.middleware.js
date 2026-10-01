@@ -1,15 +1,29 @@
 const { verificarToken } = require('../utils/jwt.util');
 const { fail } = require('../utils/response.util');
+const { authCookie } = require('../config/env');
+
+function leerCookies(header = '') {
+  return header.split(';').reduce((cookies, parte) => {
+    const indice = parte.indexOf('=');
+    if (indice < 0) return cookies;
+    const nombre = parte.slice(0, indice).trim();
+    try { cookies[nombre] = decodeURIComponent(parte.slice(indice + 1).trim()); }
+    catch { cookies[nombre] = parte.slice(indice + 1).trim(); }
+    return cookies;
+  }, {});
+}
 
 /**
  * Verifica que la petición incluya un JWT válido en el header
  * Authorization: Bearer <token>. Si es válido, adjunta req.usuario.
  */
 async function authMiddleware(req, res, next) {
+  const tokenCookie = leerCookies(req.headers.cookie)[authCookie.name];
   const authHeader = req.headers.authorization || '';
-  const [tipo, token] = authHeader.split(' ');
+  const [tipo, tokenHeader] = authHeader.split(' ');
+  const token = tokenCookie || (tipo === 'Bearer' ? tokenHeader : null);
 
-  if (tipo !== 'Bearer' || !token) {
+  if (!token) {
     return fail(res, 'No se proporcionó un token de autenticación válido', 401);
   }
 

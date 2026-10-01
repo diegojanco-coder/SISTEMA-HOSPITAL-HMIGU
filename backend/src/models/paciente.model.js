@@ -13,11 +13,12 @@ async function findAll({ page = 1, limit = 10, q = '' } = {}) {
          OR p.apellidos LIKE ?
          OR p.codigo_paciente LIKE ?
          OR p.carnet_identidad LIKE ?
+         OR p.certificado_nacimiento LIKE ?
          OR CONCAT(p.nombres, ' ', p.apellidos) LIKE ?
        )
      ORDER BY p.created_at DESC
      LIMIT ? OFFSET ?`,
-    [like, like, like, like, like, Number(limit), Number(offset)]
+    [like, like, like, like, like, like, Number(limit), Number(offset)]
   );
   const [[{ total }]] = await pool.query(
     `SELECT COUNT(*) AS total FROM pacientes
@@ -27,9 +28,10 @@ async function findAll({ page = 1, limit = 10, q = '' } = {}) {
          OR apellidos LIKE ?
          OR codigo_paciente LIKE ?
          OR carnet_identidad LIKE ?
+         OR certificado_nacimiento LIKE ?
          OR CONCAT(nombres, ' ', apellidos) LIKE ?
        )`,
-    [like, like, like, like, like]
+    [like, like, like, like, like, like]
   );
   return { rows, total };
 }
@@ -65,11 +67,11 @@ async function create(data, db = pool) {
   const codigo = await generarCodigoPaciente(db);
   const [result] = await db.query(
     `INSERT INTO pacientes
-      (codigo_paciente, nombres, apellidos, carnet_identidad, fecha_nacimiento, sexo,
+      (codigo_paciente, nombres, apellidos, carnet_identidad, certificado_nacimiento, fecha_nacimiento, sexo,
        direccion, telefono_contacto, email, lugar_nacimiento, es_dependiente, creado_por, departamento,
        identidad_provisional, registro_pendiente, contacto_alertas)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [codigo, data.nombres, data.apellidos, data.carnetIdentidad || null, data.fechaNacimiento,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [codigo, data.nombres, data.apellidos, data.carnetIdentidad || null, data.certificadoNacimiento || null, data.fechaNacimiento,
      data.sexo, data.direccion || null, data.telefonoContacto || null, data.email || null, data.lugarNacimiento || null,
      data.esDependiente ? 1 : 0, data.creadoPor || null, data.departamento || null,
      data.identidadProvisional ? 1 : 0, data.registroPendiente ? 1 : 0, data.contactoAlertas]
@@ -79,11 +81,11 @@ async function create(data, db = pool) {
 
 async function update(id, data, db = pool) {
   await db.query(
-    `UPDATE pacientes SET nombres = ?, apellidos = ?, carnet_identidad = ?, fecha_nacimiento = ?,
+    `UPDATE pacientes SET nombres = ?, apellidos = ?, carnet_identidad = ?, certificado_nacimiento = ?, fecha_nacimiento = ?,
        sexo = ?, direccion = ?, telefono_contacto = ?, email = ?, lugar_nacimiento = ?, es_dependiente = ?, departamento = ?,
        identidad_provisional = ?, registro_pendiente = ?, contacto_alertas = ?
      WHERE id = ?`,
-    [data.nombres, data.apellidos, data.carnetIdentidad || null, data.fechaNacimiento, data.sexo,
+    [data.nombres, data.apellidos, data.carnetIdentidad || null, data.certificadoNacimiento || null, data.fechaNacimiento, data.sexo,
      data.direccion || null, data.telefonoContacto || null, data.email || null, data.lugarNacimiento || null, data.esDependiente ? 1 : 0, data.departamento || null,
      data.identidadProvisional ? 1 : 0, data.registroPendiente ? 1 : 0, data.contactoAlertas, id]
   );

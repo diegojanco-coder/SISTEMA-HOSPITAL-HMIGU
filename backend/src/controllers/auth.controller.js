@@ -2,6 +2,15 @@ const authService = require('../services/auth.service');
 const usuarioModel = require('../models/usuario.model');
 const { ok, fail } = require('../utils/response.util');
 const auditoriaService = require('../services/auditoria.service');
+const { authCookie } = require('../config/env');
+
+const opcionesCookie = () => ({
+  httpOnly: true,
+  secure: authCookie.secure,
+  sameSite: 'strict',
+  path: '/',
+  maxAge: authCookie.maxAgeMs
+});
 
 async function login(req, res, next) {
   try {
@@ -20,7 +29,8 @@ async function login(req, res, next) {
       userAgent: req.headers['user-agent']
     });
 
-    return ok(res, { token, usuario }, 'Inicio de sesión exitoso');
+    res.cookie(authCookie.name, token, opcionesCookie());
+    return ok(res, { usuario }, 'Inicio de sesión exitoso');
   } catch (error) {
     return next(error);
   }
@@ -36,6 +46,7 @@ async function logout(req, res, next) {
       ip: req.ip,
       userAgent: req.headers['user-agent']
     });
+    res.clearCookie(authCookie.name, { ...opcionesCookie(), maxAge: undefined });
     return ok(res, null, 'Sesión cerrada correctamente');
   } catch (error) {
     return next(error);
