@@ -8,7 +8,9 @@ async function validarAplicacion(db,paciente,dosis,fecha,historial) {
  try{if(typeof regla==='string')regla=JSON.parse(regla);}catch{throw new AplicacionError('La regla requiere revisión');}
  if(regla){
   const referencia=new Date(`${fecha}T12:00:00`);
-  if(evaluarAlcance(paciente,dosis,referencia))throw new AplicacionError('La dosis está fuera del alcance o requiere revisión del calendario');
+  const alcance=evaluarAlcance(paciente,dosis,referencia);
+  if(alcance==='bloqueada_por_edad')throw new AplicacionError('No elegible: supera la edad máxima estricta permitida para esta dosis');
+  if(alcance)throw new AplicacionError('La dosis está fuera del alcance o requiere revisión del calendario');
   if(regla.programacion?.base!=='contacto'){
    const programada=programarDosis(paciente,dosis,historial);
    if(programada.revision)throw new AplicacionError('Falta el antecedente necesario para programar esta dosis');

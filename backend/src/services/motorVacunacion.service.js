@@ -73,10 +73,13 @@ function evaluarEsquema(paciente, catalogoDosis, historial, fechaReferencia = ne
     try {regla=typeof dosis.regla_calendario==='string'?JSON.parse(dosis.regla_calendario):dosis.regla_calendario;} catch {}
     const alcance = evaluarAlcance(paciente, dosis, fechaReferencia);
     if (!registroAplicado) estado = alcance || estado;
+    const hoy=fechaCivil(fechaReferencia);
+    const diasRetraso=estado==='atrasada' && fechaLimite ? Math.max(0,diferenciaDias(fechaLimite,hoy)) : 0;
 
     return {
       dosisId: dosis.id,
       registrable: !registroAplicado && alcance === null && regla?.programacion?.base === 'contacto',
+      seleccionable: !registroAplicado && alcance !== 'bloqueada_por_edad',
       dentroAlcance: alcance === null && !programacion.revision,
       vacunaId: dosis.vacuna_id,
       vacunaNombre: dosis.vacuna_nombre,
@@ -84,6 +87,8 @@ function evaluarEsquema(paciente, catalogoDosis, historial, fechaReferencia = ne
       numeroDosis: dosis.numero_dosis,
       nombreDosis: dosis.nombre_dosis,
       estado,
+      diasRetraso,
+      motivoBloqueo: estado === 'bloqueada_por_edad' ? `Supera la edad máxima estricta de ${dosis.edad_maxima_dias} días` : null,
       fechaRecomendada: fechaRecomendada ? isoCivil(fechaRecomendada) : null,
       fechaLimite: fechaLimite ? isoCivil(fechaLimite) : null,
       fechaAplicacion: registroAplicado ? registroAplicado.fecha_aplicacion : null,
@@ -96,14 +101,16 @@ function evaluarEsquema(paciente, catalogoDosis, historial, fechaReferencia = ne
     proximas: detalle.filter((d) => d.estado === 'proxima').length,
     pendientes: detalle.filter((d) => d.estado === 'pendiente').length,
     atrasadas: detalle.filter((d) => d.estado === 'atrasada').length,
-    futuras: detalle.filter((d) => d.estado === 'futura').length
+    futuras: detalle.filter((d) => d.estado === 'futura').length,
+    bloqueadas: detalle.filter((d) => d.estado === 'bloqueada_por_edad').length
   };
 
-  const requiereRevision = detalle.some(d => !d.dentroAlcance) || detalle.length === 0;
+  const requiereRevision = detalle.some(d => !d.dentroAlcance && d.estado!=='bloqueada_por_edad' && d.estado!=='aplicada') || detalle.length === 0;
   const advertencia = requiereRevision ? 'Evaluación parcial: las dosis fuera del alcance o sin reglas verificadas requieren revisión del personal de salud. La ausencia de alertas no confirma un esquema completo.' : null;
   const estadoGeneral = resumen.atrasadas > 0 ? 'rojo' : (resumen.proximas + resumen.pendientes) > 0 ? 'amarillo' : requiereRevision ? 'revision' : 'verde';
 
-  return { edad, detalle, resumen, estadoGeneral, advertencia };
+  const dosisDisponibles=detalle.filter(d=>d.estado!=='aplicada');
+  return { edad, detalle, dosisDisponibles, resumen, estadoGeneral, advertencia };
 }
 
 module.exports = { evaluarEsquema, evaluarDosis, VENTANA_PROXIMA_DIAS };

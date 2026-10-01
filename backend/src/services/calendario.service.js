@@ -5,6 +5,14 @@ const { esFechaISOValida } = require('../utils/validation.util');
 class CalendarioError extends Error { constructor(message,status=422){super(message);this.status=status;} }
 const territorios=['Bolivia','Beni','Chuquisaca','Cochabamba','La Paz','Oruro','Pando','Potosí','Santa Cruz','Tarija'];
 const unidades=['dias','semanas','meses','anios'];
+function normalizarLimitesEstrictos(data) {
+ const edadMinimaDias=data.edadMinimaDias==null||data.edadMinimaDias===''?null:Number(data.edadMinimaDias);
+ const edadMaximaDias=data.edadMaximaDias==null||data.edadMaximaDias===''?null:Number(data.edadMaximaDias);
+ if(edadMinimaDias!==null&&(!Number.isInteger(edadMinimaDias)||edadMinimaDias<0||edadMinimaDias>60000))throw new CalendarioError('Edad mínima estricta inválida');
+ if(edadMaximaDias!==null&&(!Number.isInteger(edadMaximaDias)||edadMaximaDias<0||edadMaximaDias>60000))throw new CalendarioError('Edad máxima estricta inválida');
+ if(edadMinimaDias!==null&&edadMaximaDias!==null&&edadMaximaDias<=edadMinimaDias)throw new CalendarioError('La edad máxima estricta debe superar la mínima estricta');
+ return {edadMinimaDias,edadMaximaDias};
+}
 function validarRegla(data) {
  const r=data.regla;
  if(!r || typeof r!=='object' || Array.isArray(r))throw new CalendarioError('Regla de calendario inválida');
@@ -22,6 +30,7 @@ function validarRegla(data) {
  if(p.permitirOtraVacuna!==undefined && typeof p.permitirOtraVacuna!=='boolean')throw new CalendarioError('Indique si el antecedente puede pertenecer a otra vacuna');
  if(!Number.isInteger(data.edadValor) || data.edadValor<0 || data.edadValor>60000 || !unidades.includes(data.edadUnidad))throw new CalendarioError('Edad recomendada inválida');
  if(!Number.isInteger(data.toleranciaDias) || data.toleranciaDias<0 || data.toleranciaDias>3650)throw new CalendarioError('Margen de seguimiento inválido');
+ normalizarLimitesEstrictos(data);
  if(!Number.isInteger(data.version) || data.version<0)throw new CalendarioError('Versión de calendario inválida');
  return {tipo:r.tipo,fuente:r.fuente.trim(),habilitada:r.habilitada,minMeses:r.minMeses,maxMesesExclusivo:r.maxMesesExclusivo??null,
  ...(r.edadesPorSexo!==undefined?{edadesPorSexo:Object.fromEntries(Object.entries(r.edadesPorSexo).map(([sexo,rango])=>[sexo,{minMeses:rango.minMeses,maxMesesExclusivo:rango.maxMesesExclusivo}]))}:{}),
@@ -29,7 +38,7 @@ function validarRegla(data) {
  programacion:p.base==='dosis_previa'?{base:p.base,dosisId:p.dosisId,valor:p.valor,unidad:p.unidad,...(p.permitirOtraVacuna===true?{permitirOtraVacuna:true}:{})}:{base:p.base}};
 }
 async function guardar(id,data,actor={}) {
- const regla=validarRegla(data);
+ const regla=validarRegla(data),limites=normalizarLimitesEstrictos(data);
  return transaction(async db=>{
   // Orden común para serializar ediciones y evitar ciclos concurrentes.
   const [catalogo]=await db.query('SELECT * FROM dosis ORDER BY id FOR UPDATE');
@@ -49,7 +58,7 @@ async function guardar(id,data,actor={}) {
    }
   }
   regla.version=data.version+1;
-  await db.query('UPDATE dosis SET regla_calendario=?,edad_recomendada_valor=?,edad_recomendada_unidad=?,tolerancia_dias=? WHERE id=?',[JSON.stringify(regla),data.edadValor,data.edadUnidad,data.toleranciaDias,id]);
+  await db.query('UPDATE dosis SET regla_calendario=?,edad_recomendada_valor=?,edad_recomendada_unidad=?,tolerancia_dias=?,edad_minima_dias=?,edad_maxima_dias=? WHERE id=?',[JSON.stringify(regla),data.edadValor,data.edadUnidad,data.toleranciaDias,limites.edadMinimaDias,limites.edadMaximaDias,id]);
   const [[nuevo]]=await db.query('SELECT * FROM dosis WHERE id=?',[id]);
   const resultado={...nuevo,regla_calendario:typeof nuevo.regla_calendario==='string'?JSON.parse(nuevo.regla_calendario):nuevo.regla_calendario};
   await auditoria.create({usuarioId:actor.usuarioId||null,accion:'EDITAR',entidad:'calendario',entidadId:id,datosPrevios:actual,datosNuevos:resultado,ip:actor.ip,userAgent:actor.userAgent},db);

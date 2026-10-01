@@ -141,6 +141,8 @@ CREATE TABLE dosis (
   edad_recomendada_valor INT UNSIGNED NULL,
   edad_recomendada_unidad ENUM('dias','semanas','meses','anios') NULL,
     tolerancia_dias         INT UNSIGNED  NOT NULL DEFAULT 30 COMMENT 'Días de gracia antes de marcar como atrasada',
+    edad_minima_dias        INT UNSIGNED  NULL COMMENT 'Edad mínima estricta para aplicar la dosis',
+    edad_maxima_dias        INT UNSIGNED  NULL COMMENT 'Edad máxima estricta; NULL permite catch-up tardío',
     intervalo_minimo_dias   INT UNSIGNED  NOT NULL DEFAULT 0 COMMENT 'Intervalo mínimo respecto a la dosis anterior',
     estado                  ENUM('activo','inactivo') NOT NULL DEFAULT 'activo',
     CONSTRAINT uq_dosis_vacuna_numero UNIQUE (vacuna_id, numero_dosis),

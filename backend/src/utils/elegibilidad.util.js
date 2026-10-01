@@ -1,4 +1,4 @@
-const { fechaCivil, sumarEdad } = require('./calendario.util');
+const { fechaCivil, sumarEdad, diferenciaDias } = require('./calendario.util');
 // Propiedad opcional: su ausencia conserva el comportamiento de las reglas anteriores.
 function validarEdadesPorSexo(rangos) {
  if(rangos===undefined)return true;
@@ -15,6 +15,9 @@ function validarEdadesPorSexo(rangos) {
 // Evalúa el alcance de una regla, no determina contraindicaciones clínicas.
 function evaluarAlcance(paciente, dosis, referencia = new Date()) {
  const nacimiento = fechaCivil(paciente.fecha_nacimiento), hoy = fechaCivil(referencia);
+ const edadDias=diferenciaDias(nacimiento,hoy);
+ if(dosis.edad_maxima_dias!=null && edadDias>Number(dosis.edad_maxima_dias))return 'bloqueada_por_edad';
+ if(dosis.edad_minima_dias!=null && edadDias<Number(dosis.edad_minima_dias))return 'fuera_alcance';
  let regla = dosis.regla_calendario;
  try { if (typeof regla === 'string') regla = JSON.parse(regla); } catch { return 'revision'; }
  if (regla?.habilitada === false) return 'revision';
@@ -40,12 +43,12 @@ function evaluarAlcance(paciente, dosis, referencia = new Date()) {
  }
  if (regla.minMeses != null && regla.maxMesesExclusivo != null && regla.minMeses >= regla.maxMesesExclusivo) return 'revision';
  if (regla.minMeses != null && hoy < sumarEdad(nacimiento,regla.minMeses,'meses')) return 'fuera_alcance';
- if (regla.maxMesesExclusivo != null && hoy >= sumarEdad(nacimiento,regla.maxMesesExclusivo,'meses')) return 'fuera_alcance';
+ // El máximo de la ventana programática marca atraso, no contraindicación.
+ // Solo edad_maxima_dias representa un límite estricto de seguridad.
  if (regla.edadesPorSexo!==undefined) {
   const rango=regla.edadesPorSexo[paciente.sexo];
   if (!rango) return 'fuera_alcance';
   if (hoy < sumarEdad(nacimiento,rango.minMeses,'meses')) return 'fuera_alcance';
-  if (rango.maxMesesExclusivo!=null && hoy >= sumarEdad(nacimiento,rango.maxMesesExclusivo,'meses')) return 'fuera_alcance';
  }
  return null;
 }

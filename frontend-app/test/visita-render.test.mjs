@@ -8,6 +8,9 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import * as visita from '../src/lib/visita.ts';
 test('el formulario abre sin depender de variables del formulario de tutores', async () => {
  const source=await readFile(new URL('../src/app/components/dashboard/AddVaccineModal.tsx',import.meta.url),'utf8');
+ assert.match(source,/dosisDisponibles/);
+ assert.match(source,/Paciente con retraso/);
+ assert.match(source,/No elegible: supera la edad límite permitida/);
  const result=await transform(source,{loader:'tsx',format:'cjs',jsx:'automatic'});
  const require=createRequire(import.meta.url);
  const compiled={exports:{}};

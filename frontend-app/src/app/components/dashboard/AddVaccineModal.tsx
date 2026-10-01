@@ -34,7 +34,9 @@ export default function AddVaccineModal({ paciente, aplicadoPor, onClose, onSave
       .finally(() => { if (activo) setCargando(false); });
     return () => { activo = false; };
   }, [paciente.id, reintento]);
-  const opciones = esquema?.detalle.filter(d => (['proxima', 'pendiente', 'atrasada'].includes(d.estado) || d.registrable)) || [];
+  const disponibles = esquema?.dosisDisponibles ?? esquema?.detalle.filter(d => d.estado !== 'aplicada') ?? [];
+  const opciones = disponibles.filter(d => ['proxima', 'pendiente', 'atrasada', 'bloqueada_por_edad'].includes(d.estado) || d.registrable);
+  const bloqueadas = opciones.filter(d => d.estado === 'bloqueada_por_edad');
   const dosis = opciones.find(d => String(d.dosisId) === dosisId);
   useEffect(() => {
     let activo = true;
@@ -90,9 +92,11 @@ export default function AddVaccineModal({ paciente, aplicadoPor, onClose, onSave
             <label className="block text-sm font-semibold">Dosis
               <select aria-label="Dosis" value={dosisId} onChange={e => { setDosisId(e.target.value); setLoteId(''); setLotes([]); setError(''); }} disabled={cargando || Boolean(errorCarga)} className={`${inputClass} mt-2`}>
                 <option value="">{cargando ? 'Cargando dosis...' : 'Seleccionar dosis...'}</option>
-                {opciones.map(d => <option key={d.dosisId} value={d.dosisId} disabled={seleccionadas.some(s => s.dosisId === d.dosisId)}>{d.vacunaNombre} · {d.nombreDosis}{d.registrable ? ' (al contacto)' : ''}{seleccionadas.some(s => s.dosisId === d.dosisId) ? ' (añadida)' : ''}</option>)}
+                {opciones.map(d => <option key={d.dosisId} value={d.dosisId} disabled={d.estado === 'bloqueada_por_edad' || seleccionadas.some(s => s.dosisId === d.dosisId)}>{d.vacunaNombre} · {d.nombreDosis}{d.registrable ? ' (al contacto)' : ''}{d.estado === 'bloqueada_por_edad' ? ' (bloqueada por edad)' : ''}{seleccionadas.some(s => s.dosisId === d.dosisId) ? ' (añadida)' : ''}</option>)}
               </select>
             </label>
+            {dosis?.estado === 'atrasada' && <p role="status" className="rounded-lg border border-yellow-300 bg-yellow-50 p-3 text-sm text-yellow-800">Paciente con retraso de {dosis.diasRetraso ?? 0} días; se permite continuar el esquema.</p>}
+            {bloqueadas.map(d => <p key={d.dosisId} role="alert" className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-800"><strong>{d.vacunaNombre} · {d.nombreDosis}:</strong> No elegible: supera la edad límite permitida.</p>)}
             {!cargando && !errorCarga && !opciones.length && <p className="text-sm text-muted-foreground">No hay dosis disponibles para registrar en el esquema actual.</p>}
             <label className="block text-sm font-semibold">Lote
               <select aria-label="Lote" value={loteId} onChange={e => setLoteId(e.target.value)} disabled={!dosis || cargandoLotes} className={`${inputClass} mt-2`}>

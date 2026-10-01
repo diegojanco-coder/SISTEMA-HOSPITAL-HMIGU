@@ -46,3 +46,10 @@ test('administración rechaza mapas por sexo inválidos con estado 422',()=>{
   assert.throws(()=>service.validarRegla(p),e=>e.status===422&&/sexo/.test(e.message));
  }
 });
+test('guarda límites estrictos por separado de la ventana ideal',()=>isolated(async(c,[id])=>{
+ const p=payload();p.edadMinimaDias=42;p.edadMaximaDias=224;
+ const r=await service.guardar(id,p);
+ assert.equal(r.edad_minima_dias,42);assert.equal(r.edad_maxima_dias,224);
+ const invalido=payload();invalido.edadMinimaDias=300;invalido.edadMaximaDias=200;
+ assert.throws(()=>service.validarRegla(invalido),/máxima estricta/);
+}));

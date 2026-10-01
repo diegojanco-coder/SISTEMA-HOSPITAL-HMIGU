@@ -39,7 +39,7 @@ async function registrarCita({ pacienteId, usuarioId, fechaHora, observaciones, 
         throw new CitaError('La dosis o el lote seleccionado no está activo o no corresponde a la vacuna indicada');
       }
       if (lote.estado !== 'activo' || Boolean(lote.vencido) || lote.cantidad_disponible < 1) throw new CitaError('El lote está vencido, inactivo o sin stock', 409);
-      const [[duplicada]] = await connection.query('SELECT id FROM historial_vacunacion WHERE paciente_id = ? AND dosis_id = ?', [pacienteId, item.dosisId]);
+      const [[duplicada]] = await connection.query('SELECT id FROM historial_vacunacion WHERE paciente_id = ? AND dosis_id = ? FOR UPDATE', [pacienteId, item.dosisId]);
       if (duplicada) throw new CitaError('Esta dosis ya fue registrada previamente para el paciente', 409);
       const fecha=item.fechaAplicacion||paciente.hoy;
       if(fecha>paciente.hoy)throw new CitaError('La fecha de aplicación no puede ser futura');
@@ -59,7 +59,11 @@ async function registrarCita({ pacienteId, usuarioId, fechaHora, observaciones, 
     await auditoria.create({usuarioId,accion:'CREAR',entidad:'citas',entidadId:cita.insertId,datosNuevos:{pacienteId,dosisAplicadas:registros}},connection);
     await connection.commit();
     resultado = { id: cita.insertId, pacienteId, dosisAplicadas: registros };
-  } catch (error) { await connection.rollback(); throw error; } finally { connection.release(); }
+  } catch (error) {
+    await connection.rollback();
+    if(error.code==='ER_DUP_ENTRY')throw new CitaError('Esta dosis ya fue registrada concurrentemente para el paciente',409);
+    throw error;
+  } finally { connection.release(); }
   try { await alertaService.generarAlertasPaciente(pacienteId); }
   catch (error) {
     console.error('[ALERTAS] Aplicación guardada; actualización pendiente:', error.message);

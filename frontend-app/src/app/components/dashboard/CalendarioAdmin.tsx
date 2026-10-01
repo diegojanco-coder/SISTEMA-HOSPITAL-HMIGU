@@ -8,6 +8,7 @@ export default function CalendarioAdmin({vacunas,onGuardado}:{vacunas:Vacuna[];o
  const [id,setId]=useState('');const [regla,setRegla]=useState<ReglaCalendario|null>(null);
  const [borradorSexos,setBorradorSexos]=useState<NonNullable<ReglaCalendario['edadesPorSexo']>>({});
  const [edad,setEdad]=useState(0),[unidad,setUnidad]=useState('dias'),[margen,setMargen]=useState(30);
+ const [edadMinimaEstricta,setEdadMinimaEstricta]=useState<number|''>(''),[edadMaximaEstricta,setEdadMaximaEstricta]=useState<number|''>('');
  const [guardando,setGuardando]=useState(false),[mensaje,setMensaje]=useState(''),[error,setError]=useState('');
  const dosis=vacunas.flatMap(v=>v.dosis.map(d=>({...d,vacunaNombre:v.nombre})));
  const elegida=dosis.find(d=>String(d.id)===id);
@@ -16,6 +17,7 @@ export default function CalendarioAdmin({vacunas,onGuardado}:{vacunas:Vacuna[];o
   if(!d){setRegla(null);setBorradorSexos({});return;}
   setBorradorSexos({...d.regla_calendario?.edadesPorSexo});
   setEdad(d.edad_recomendada_valor??d.edad_recomendada_dias);setUnidad(d.edad_recomendada_unidad??'dias');setMargen(d.tolerancia_dias);
+  setEdadMinimaEstricta(d.edad_minima_dias??'');setEdadMaximaEstricta(d.edad_maxima_dias??'');
   setRegla({...d.regla_calendario,tipo:d.regla_calendario?.tipo??'regular',fuente:d.regla_calendario?.fuente??'',minMeses:d.regla_calendario?.minMeses??0,
    habilitada:d.regla_calendario?.habilitada??Boolean(d.regla_calendario),version:d.regla_calendario?.version??0,programacion:d.regla_calendario?.programacion??{base:'nacimiento'}});
  }
@@ -27,14 +29,14 @@ export default function CalendarioAdmin({vacunas,onGuardado}:{vacunas:Vacuna[];o
   cambiar({edadesPorSexo:rangos});
  }
  async function guardar(event:React.FormEvent){event.preventDefault();if(!regla||guardando)return;setGuardando(true);setError('');setMensaje('');
-  try {const {data}=await api.put(`/vacunas/dosis/${id}/calendario`,{regla,version:regla.version??0,edadValor:edad,edadUnidad:unidad,toleranciaDias:margen});
+  try {const {data}=await api.put(`/vacunas/dosis/${id}/calendario`,{regla,version:regla.version??0,edadValor:edad,edadUnidad:unidad,toleranciaDias:margen,edadMinimaDias:edadMinimaEstricta,edadMaximaDias:edadMaximaEstricta});
    setRegla(data.data.regla_calendario);setMensaje('Regla guardada y auditada.'+(data.data.advertencias?.length?' '+data.data.advertencias.join(' '):''));
    try {await onGuardado();}catch {setMensaje('Regla guardada. Recargue la página para actualizar el listado.');}
   }catch(e:any){setError(e.response?.data?.message||'No se pudo guardar la regla');}finally{setGuardando(false);}
  }
  return <section className="bg-card rounded-xl border border-border p-6 space-y-4">
   <h4 className="text-lg font-bold">Reglas del calendario y campañas</h4>
-  <p className="text-sm text-muted-foreground">Configure cada dosis según su documento de referencia. La edad máxima no se incluye. Para una nueva temporada, cree una dosis distinta y conserve las anteriores.</p>
+  <p className="text-sm text-muted-foreground">Configure cada dosis según su documento de referencia. Las ventanas ideales generan atraso, pero no bloquean. Use una edad máxima estricta solo cuando la fuente clínica establezca una contraindicación.</p>
   <label className="block">Dosis a configurar<select className={clase} value={id} disabled={guardando} onChange={e=>seleccionar(e.target.value)}><option value="">Seleccione una dosis</option>{dosis.map(d=><option key={d.id} value={d.id}>{d.vacunaNombre} · {d.nombre_dosis}</option>)}</select></label>
   {regla&&<form onSubmit={guardar} className="space-y-4"><fieldset disabled={guardando} className="space-y-4">
    <div className="grid md:grid-cols-2 gap-4">
@@ -71,6 +73,10 @@ export default function CalendarioAdmin({vacunas,onGuardado}:{vacunas:Vacuna[];o
     <label>Unidad del intervalo<select required className={clase} value={regla.programacion.unidad??''} onChange={e=>cambiar({programacion:{...regla.programacion!,unidad:e.target.value}})}><option value="">Seleccione</option>{unidades.map((u,i)=><option key={u} value={u}>{etiquetas[i]}</option>)}</select></label>
    </div>}
    {regla.programacion?.base==='nacimiento'&&<div className="grid md:grid-cols-2 gap-4"><label>Edad recomendada<input type="number" min="0" max="60000" required className={clase} value={edad} onChange={e=>setEdad(Number(e.target.value))}/></label><label>Unidad de edad<select className={clase} value={unidad} onChange={e=>setUnidad(e.target.value)}>{unidades.map((u,i)=><option key={u} value={u}>{etiquetas[i]}</option>)}</select></label></div>}
+   <div className="rounded-lg border border-border p-4 space-y-3"><p className="font-medium">Límites estrictos de seguridad (opcionales)</p><p className="text-sm text-muted-foreground">Déjelos vacíos para permitir esquemas atrasados. El máximo bloquea la aplicación al superarse.</p><div className="grid md:grid-cols-2 gap-4">
+    <label>Edad mínima estricta (días)<input type="number" min="0" max="60000" className={clase} value={edadMinimaEstricta} placeholder="Sin límite" onChange={e=>setEdadMinimaEstricta(e.target.value===''?'':Number(e.target.value))}/></label>
+    <label>Edad máxima estricta (días)<input type="number" min={edadMinimaEstricta===''?0:edadMinimaEstricta+1} max="60000" className={clase} value={edadMaximaEstricta} placeholder="Sin límite" onChange={e=>setEdadMaximaEstricta(e.target.value===''?'':Number(e.target.value))}/></label>
+   </div></div>
    <label className="block">Margen de seguimiento (días)<input type="number" min="0" max="3650" required className={clase} value={margen} onChange={e=>setMargen(Number(e.target.value))}/></label>
    <label className="flex gap-2 items-start"><input type="checkbox" checked={regla.habilitada===true} onChange={e=>cambiar({habilitada:e.target.checked})}/>Habilitar esta regla para programación y alertas conforme a la fuente indicada.</label>
    <button className="rounded-lg bg-primary text-primary-foreground px-4 py-2" type="submit" disabled={regla.edadesPorSexo!==undefined&&!Object.keys(regla.edadesPorSexo).length}>{guardando?'Guardando…':'Guardar regla'}</button>

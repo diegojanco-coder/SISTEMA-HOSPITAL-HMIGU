@@ -74,6 +74,8 @@ export interface Dosis {
   nombre_dosis: string;
   edad_recomendada_dias: number;
   tolerancia_dias: number;
+  edad_minima_dias?: number | null;
+  edad_maxima_dias?: number | null;
   intervalo_minimo_dias: number;
   estado: 'activo' | 'inactivo';
 }
@@ -89,10 +91,11 @@ export interface Vacuna {
   dosis: Dosis[];
 }
 
-export type EstadoDosis = 'revision' | 'fuera_alcance' | 'aplicada' | 'futura' | 'proxima' | 'pendiente' | 'atrasada';
+export type EstadoDosis = 'revision' | 'fuera_alcance' | 'bloqueada_por_edad' | 'aplicada' | 'futura' | 'proxima' | 'pendiente' | 'atrasada';
 
 export interface EsquemaDetalleItem {
   registrable?: boolean;
+  seleccionable?: boolean;
   dosisId: number;
   vacunaId: number;
   vacunaNombre: string;
@@ -100,6 +103,8 @@ export interface EsquemaDetalleItem {
   numeroDosis: number;
   nombreDosis: string;
   estado: EstadoDosis;
+  diasRetraso?: number;
+  motivoBloqueo?: string | null;
   fechaRecomendada: string | null;
   fechaLimite: string | null;
   fechaAplicacion: string | null;
@@ -109,7 +114,8 @@ export interface EsquemaDetalleItem {
 export interface EsquemaPaciente {
   edad: { anios: number; meses: number; dias: number; edadEnDias: number };
   detalle: EsquemaDetalleItem[];
-  resumen: { aplicadas: number; proximas: number; pendientes: number; atrasadas: number; futuras: number };
+  dosisDisponibles?: EsquemaDetalleItem[];
+  resumen: { aplicadas: number; proximas: number; pendientes: number; atrasadas: number; futuras: number; bloqueadas?: number };
   estadoGeneral: 'verde' | 'amarillo' | 'rojo' | 'revision';
   advertencia?: string | null;
 }

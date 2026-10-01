@@ -7,7 +7,7 @@ test('catálogo base crea dieciocho dosis, es repetible y conserva ajustes exist
  const reglaBcg=typeof bcg.regla_calendario==='string'?JSON.parse(bcg.regla_calendario):bcg.regla_calendario;
  assert.equal(bcg.edad_recomendada_valor,0);
  assert.equal(require('../src/utils/elegibilidad.util').evaluarAlcance({fecha_nacimiento:'2025-09-13',sexo:'F'},{regla_calendario:reglaBcg},'2026-09-12'),null);
- assert.equal(require('../src/utils/elegibilidad.util').evaluarAlcance({fecha_nacimiento:'2025-09-13',sexo:'F'},{regla_calendario:reglaBcg},'2026-09-13'),'fuera_alcance');
+ assert.equal(require('../src/utils/elegibilidad.util').evaluarAlcance({fecha_nacimiento:'2025-09-13',sexo:'F'},{regla_calendario:reglaBcg},'2026-09-13'),null);
  const [nuevas]=await db.query('SELECT v.nombre_corto,d.numero_dosis,d.edad_recomendada_valor,d.regla_calendario FROM dosis d JOIN vacunas v ON v.id=d.vacuna_id WHERE v.nombre_corto IN (?,?)',[catalogo[3].codigo,catalogo[4].codigo]);
  assert.equal(nuevas.length,2);
  const parse=r=>typeof r==='string'?JSON.parse(r):r;
@@ -30,11 +30,11 @@ test('catálogo base crea dieciocho dosis, es repetible y conserva ajustes exist
  const {evaluarAlcance}=require('../src/utils/elegibilidad.util');
  const dosisVph={regla_calendario:parse(vph.regla_calendario)},dosisFa={regla_calendario:parse(fa.regla_calendario)};
  assert.equal(evaluarAlcance({fecha_nacimiento:'2012-09-12',sexo:'F'},dosisVph,'2026-09-12'),null);
- assert.equal(evaluarAlcance({fecha_nacimiento:'2012-09-12',sexo:'M'},dosisVph,'2026-09-12'),'fuera_alcance');
+ assert.equal(evaluarAlcance({fecha_nacimiento:'2012-09-12',sexo:'M'},dosisVph,'2026-09-12'),null);
  assert.equal(evaluarAlcance({fecha_nacimiento:'2016-09-12',sexo:'M'},dosisVph,'2026-09-12'),null);
  assert.equal(evaluarAlcance({fecha_nacimiento:'2025-09-12',sexo:'M'},dosisFa,'2026-09-11'),'fuera_alcance');
  assert.equal(evaluarAlcance({fecha_nacimiento:'2025-09-12',sexo:'M'},dosisFa,'2026-09-12'),null);
- assert.equal(evaluarAlcance({fecha_nacimiento:'2024-09-12',sexo:'F'},dosisFa,'2026-09-12'),'fuera_alcance');
+ assert.equal(evaluarAlcance({fecha_nacimiento:'2024-09-12',sexo:'F'},dosisFa,'2026-09-12'),null);
  const [[d]]=await db.query('SELECT d.id FROM dosis d JOIN vacunas v ON v.id=d.vacuna_id WHERE v.nombre_corto=? ORDER BY d.id LIMIT 1',[catalogo[0].codigo]);
  await db.query('UPDATE dosis SET tolerancia_dias=17 WHERE id=?',[d.id]);
  assert.deepEqual(await cargar(db),{vacunas:0,dosis:0});const [[actual]]=await db.query('SELECT tolerancia_dias FROM dosis WHERE id=?',[d.id]);assert.equal(actual.tolerancia_dias,17);

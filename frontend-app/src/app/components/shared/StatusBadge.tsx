@@ -9,6 +9,7 @@ const ESTILOS: Record<string, string> = {
   pendiente: 'bg-yellow-100 text-yellow-700',
   rojo: 'bg-red-100 text-red-700',
   atrasada: 'bg-red-100 text-red-700',
+  bloqueada_por_edad: 'bg-red-100 text-red-800',
   futura: 'bg-muted text-muted-foreground',
 };
 
@@ -21,6 +22,7 @@ const ETIQUETAS: Record<string, string> = {
   pendiente: 'Pendiente',
   rojo: 'Atrasada',
   atrasada: 'Atrasada',
+  bloqueada_por_edad: 'Bloqueada por edad',
   futura: 'Futura',
   revision: 'Requiere revisión',
   fuera_alcance: 'Fuera del alcance de esta regla',

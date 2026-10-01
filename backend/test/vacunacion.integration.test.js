@@ -78,3 +78,18 @@ test('intervalo mínimo exige antecedente registrado',()=>isolated(async(c,data)
  await c.query('UPDATE dosis SET intervalo_minimo_dias=30 WHERE id=?',[data.dosisAplicadas[1].dosisId]);
  data.dosisAplicadas=[data.dosisAplicadas[1]];await assert.rejects(registrarCita(data),/dosis anterior/);
 }));
+test('atraso respecto a la ventana ideal permite continuar el esquema',()=>isolated(async(c,data,lote)=>{
+ const item=data.dosisAplicadas[0];
+ await c.query('UPDATE dosis SET regla_calendario=? WHERE id=?',[JSON.stringify({tipo:'regular',minMeses:216,maxMesesExclusivo:217,fuente:'fixture',programacion:{base:'contacto'}}),item.dosisId]);
+ data.dosisAplicadas=[item];
+ const result=await registrarCita(data);assert.equal(result.dosisAplicadas.length,1);
+ const [[stock]]=await c.query('SELECT cantidad_disponible FROM lotes_vacuna WHERE id=?',[lote]);assert.equal(stock.cantidad_disponible,1);
+}));
+test('edad máxima estricta se revalida en la transacción y no consume stock',()=>isolated(async(c,data,lote)=>{
+ const item=data.dosisAplicadas[0];
+ await c.query('UPDATE dosis SET edad_maxima_dias=365,regla_calendario=? WHERE id=?',[JSON.stringify({tipo:'regular',minMeses:0,fuente:'fixture',programacion:{base:'contacto'}}),item.dosisId]);
+ data.dosisAplicadas=[item];
+ await assert.rejects(registrarCita(data),/edad máxima estricta/);
+ const [[stock]]=await c.query('SELECT cantidad_disponible FROM lotes_vacuna WHERE id=?',[lote]);assert.equal(stock.cantidad_disponible,2);
+ const [[hist]]=await c.query('SELECT COUNT(*) n FROM historial_vacunacion WHERE paciente_id=?',[data.pacienteId]);assert.equal(hist.n,0);
+}));

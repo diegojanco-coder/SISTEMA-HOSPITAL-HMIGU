@@ -34,11 +34,12 @@ test('Adulto sin regla no genera atraso ni indicador al día; conserva aplicaci�
  assert.equal(r.detalle[0].estado,'revision');assert.equal(r.resumen.atrasadas,0);assert.equal(r.estadoGeneral,'revision');assert.ok(r.advertencia);
  assert.equal(evaluarEsquema(p,[dosis],[{dosis_id:1}],new Date(2026,8,8)).detalle[0].estado,'aplicada');
 });
-test('Pentavalente sale del alcance el quinto cumpleaños exacto',()=>{
+test('Pentavalente atrasada sigue disponible salvo un límite estricto',()=>{
  const d={...dosis,regla_calendario:{tipo:'regular',minMeses:0,maxMesesExclusivo:60,fuente}};
  const p={fecha_nacimiento:'2021-09-08'};
  assert.equal(evaluarAlcance(p,d,new Date(2026,8,7)),null);
- assert.equal(evaluarAlcance(p,d,new Date(2026,8,8)),'fuera_alcance');
+ assert.equal(evaluarAlcance(p,d,new Date(2026,8,8)),null);
+ assert.equal(evaluarAlcance(p,{...d,edad_maxima_dias:1825},new Date(2026,8,8)),'bloqueada_por_edad');
 });
 test('Regla adulta explícita admite adultos e independientes o dependientes',()=>{
  const d={regla_calendario:{tipo:'regular',minMeses:216,fuente}};
@@ -90,22 +91,22 @@ test('edad exacta no produce días negativos al cruzar febrero',()=>{
 });
 
 const reglaSexos={tipo:'regular',fuente,minMeses:120,maxMesesExclusivo:180,programacion:{base:'contacto'},edadesPorSexo:{F:{minMeses:120,maxMesesExclusivo:180},M:{minMeses:120,maxMesesExclusivo:132}}};
-test('VPH respeta el décimo, undécimo y decimoquinto cumpleaños por sexo',()=>{
+test('VPH respeta edades mínimas y permite catch-up después de la ventana ideal',()=>{
  const d={...dosis,regla_calendario:reglaSexos};const p={fecha_nacimiento:'2016-09-12'};
  for(const sexo of ['F','M']){
   assert.equal(evaluarAlcance({...p,sexo},d,'2026-09-11'),'fuera_alcance');
   assert.equal(evaluarAlcance({...p,sexo},d,'2026-09-12'),null);
  }
  assert.equal(evaluarAlcance({...p,sexo:'M'},d,'2027-09-11'),null);
- assert.equal(evaluarAlcance({...p,sexo:'M'},d,'2027-09-12'),'fuera_alcance');
+ assert.equal(evaluarAlcance({...p,sexo:'M'},d,'2027-09-12'),null);
  assert.equal(evaluarAlcance({...p,sexo:'F'},d,'2031-09-11'),null);
- assert.equal(evaluarAlcance({...p,sexo:'F'},d,'2031-09-12'),'fuera_alcance');
+ assert.equal(evaluarAlcance({...p,sexo:'F'},d,'2031-09-12'),null);
  assert.equal(evaluarAlcance({fecha_nacimiento:'2016-02-29',sexo:'M'},d,'2027-02-27'),null);
- assert.equal(evaluarAlcance({fecha_nacimiento:'2016-02-29',sexo:'M'},d,'2027-02-28'),'fuera_alcance');
+ assert.equal(evaluarAlcance({fecha_nacimiento:'2016-02-29',sexo:'M'},d,'2027-02-28'),null);
 });
 test('rangos específicos se intersectan con edades generales y exigen sexo conocido',()=>{
  const p={fecha_nacimiento:'2012-09-12',sexo:'F'};
- assert.equal(evaluarAlcance(p,{regla_calendario:{...reglaSexos,maxMesesExclusivo:132}},'2026-09-12'),'fuera_alcance');
+ assert.equal(evaluarAlcance(p,{regla_calendario:{...reglaSexos,maxMesesExclusivo:132}},'2026-09-12'),null);
  assert.equal(evaluarAlcance(p,{regla_calendario:{...reglaSexos,minMeses:175}},'2026-09-12'),'fuera_alcance');
  assert.equal(evaluarAlcance(p,{regla_calendario:{...reglaSexos,edadesPorSexo:{M:{minMeses:120,maxMesesExclusivo:180}}}},'2026-09-12'),'fuera_alcance');
  for(const sexo of [null,undefined,'X','f'])assert.equal(evaluarAlcance({...p,sexo},{regla_calendario:reglaSexos},'2026-09-12'),'revision');
@@ -123,7 +124,23 @@ test('motor solo permite contacto a grupo elegible y conserva aplicaciones hist�
  const d={...dosis,regla_calendario:reglaSexos};const p={fecha_nacimiento:'2012-09-12',sexo:'F'};
  const evaluar=(paciente,historial=[])=>evaluarEsquema(paciente,[d],historial,new Date(2026,8,12)).detalle[0];
  assert.equal(evaluar(p).registrable,true);assert.equal(evaluar(p).estado,'revision');
- assert.equal(evaluar({...p,sexo:'M'}).registrable,false);assert.equal(evaluar({...p,sexo:'M'}).estado,'fuera_alcance');
+ assert.equal(evaluar({...p,sexo:'M'}).registrable,true);assert.equal(evaluar({...p,sexo:'M'}).estado,'revision');
+ const estricta={...d,edad_maxima_dias:5000};
+ const bloqueada=evaluarEsquema({...p,sexo:'M'},[estricta],[],new Date(2026,8,12)).detalle[0];
+ assert.equal(bloqueada.registrable,false);assert.equal(bloqueada.seleccionable,false);assert.equal(bloqueada.estado,'bloqueada_por_edad');
  assert.equal(evaluar({...p,sexo:'M'},[{dosis_id:d.id,fecha_aplicacion:'2022-09-12'}]).estado,'aplicada');
  assert.equal(evaluar({...p,sexo:null}).registrable,false);
+});
+test('motor excluye aplicadas de dosis disponibles y conserva atrasadas seleccionables',()=>{
+ const p={fecha_nacimiento:'2025-01-01'};
+ const catalogo=[
+  {...dosis,id:1,vacuna_id:1,vacuna_nombre:'Prueba',nombre_dosis:'Primera',regla_calendario:{tipo:'regular',minMeses:0,fuente,programacion:{base:'nacimiento'}}},
+  {...dosis,id:2,vacuna_id:1,vacuna_nombre:'Prueba',nombre_dosis:'Segunda',regla_calendario:{tipo:'regular',minMeses:0,fuente,programacion:{base:'nacimiento'}}}
+ ];
+ const resultado=evaluarEsquema(p,catalogo,[{dosis_id:1,fecha_aplicacion:'2025-03-01'}],new Date(2025,5,1));
+ assert.equal(resultado.detalle.find(x=>x.dosisId===1).estado,'aplicada');
+ assert.deepEqual(resultado.dosisDisponibles.map(x=>x.dosisId),[2]);
+ assert.equal(resultado.dosisDisponibles[0].estado,'atrasada');
+ assert.equal(resultado.dosisDisponibles[0].seleccionable,true);
+ assert.ok(resultado.dosisDisponibles[0].diasRetraso>0);
 });
