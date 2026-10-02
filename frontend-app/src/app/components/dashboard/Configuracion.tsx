@@ -190,13 +190,14 @@ function UsuarioModal({ usuario, onClose, onSaved }: { usuario: Usuario | null; 
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const validacion = validateForm(form, { nombreCompleto: LIMITES_TEXTO.tutor, email: LIMITES_TEXTO.email, username: LIMITES_TEXTO.nombreUsuario, password: LIMITES_TEXTO.password }, { nombreCompleto: 'nombre', username: 'nombre_usuario', password: 'password' });
+    const datos = { ...form, nombreCompleto: normalizarEspacios(form.nombreCompleto) };
+    const validacion = validateForm(datos, { nombreCompleto: LIMITES_TEXTO.tutor, email: LIMITES_TEXTO.email, username: LIMITES_TEXTO.nombreUsuario, password: LIMITES_TEXTO.password }, { nombreCompleto: 'nombre', username: 'nombre_usuario', password: 'password' });
     if (validacion) { setErrorMsg(validacion); return; }
     setGuardando(true);
     setErrorMsg('');
     try {
-      if (usuario) await actualizarUsuario(usuario.id, form);
-      else await crearUsuario(form);
+      if (usuario) await actualizarUsuario(usuario.id, datos);
+      else await crearUsuario(datos);
       onSaved();
     } catch (err: any) {
       setErrorMsg(err?.response?.data?.message || 'No se pudo guardar el usuario');
@@ -213,7 +214,7 @@ function UsuarioModal({ usuario, onClose, onSaved }: { usuario: Usuario | null; 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {errorMsg && <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">{errorMsg}</div>}
           <div><label className={labelClass} style={fontBody}>Nombre completo *</label>
-            <input required maxLength={LIMITES_TEXTO.tutor} value={form.nombreCompleto} onChange={(e) => setForm({ ...form, nombreCompleto: normalizarEspacios(e.target.value) })} className={`${inputClass} ${errorLongitud(form.nombreCompleto, LIMITES_TEXTO.tutor, 'nombre') ? 'border-red-500 ring-2 ring-red-500/20' : ''}`} style={fontBody} />
+            <input required maxLength={LIMITES_TEXTO.tutor} value={form.nombreCompleto} onChange={(e) => setForm({ ...form, nombreCompleto: e.target.value.replace(/\s{2,}/g, ' ') })} className={`${inputClass} ${errorLongitud(form.nombreCompleto, LIMITES_TEXTO.tutor, 'nombre') ? 'border-red-500 ring-2 ring-red-500/20' : ''}`} style={fontBody} />
             {errorLongitud(form.nombreCompleto, LIMITES_TEXTO.tutor, 'nombre') && <p className="text-xs text-red-600">{errorLongitud(form.nombreCompleto, LIMITES_TEXTO.tutor, 'nombre')}</p>}</div>
           <div><label className={labelClass} style={fontBody}>Email *</label>
             <input required maxLength={LIMITES_TEXTO.email} type="email" value={form.email} onChange={(e) => setForm({ ...form, email: normalizarEspacios(e.target.value) })} className={`${inputClass} ${errorLongitud(form.email, LIMITES_TEXTO.email, 'email') ? 'border-red-500 ring-2 ring-red-500/20' : ''}`} style={fontBody} />
