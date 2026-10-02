@@ -17,6 +17,11 @@ const MENSAJES = {
   pendiente: (v, d) => `Pendiente: ${v} - ${d} ya corresponde aplicarse`,
   atrasada: (v, d) => `Atrasada: ${v} - ${d} superó la fecha límite recomendada`
 };
+function mensajeAlerta(item){
+ if(item.tipoAlerta==='recomendacion_campana')return `Recomendación de campaña: ${item.vacunaNombre} - ${item.nombreDosis} está disponible durante la campaña estacional`;
+ if(item.tipoAlerta==='recomendacion_refuerzo')return `Recomendación de refuerzo: ${item.vacunaNombre} - ${item.nombreDosis} corresponde según el último antecedente registrado`;
+ return MENSAJES[item.estado](item.vacunaNombre,item.nombreDosis);
+}
 
 /**
  * Recalcula y persiste las alertas (semáforo) de UN paciente,
@@ -37,17 +42,19 @@ async function generarAlertasPaciente(pacienteId) {
       await alertaModel.eliminarPorPacienteDosis(pacienteId, item.dosisId);
       continue;
     }
+    const mensaje=mensajeAlerta(item);
     await alertaModel.upsert({
       pacienteId,
       dosisId: item.dosisId,
       estadoSemaforo: MAPA_SEMAFORO[item.estado],
       estadoDosis: item.estado,
+      tipoAlerta: item.tipoAlerta,
       fechaLimite: item.fechaLimite,
-      mensaje: MENSAJES[item.estado](item.vacunaNombre, item.nombreDosis)
+      mensaje
     });
     {
       const destinatario = paciente.registro_pendiente || paciente.identidad_provisional ? null : contacto.email;
-      await notificacionService.enviarAlertaVacuna({ pacienteId, dosisId: item.dosisId, fechaLimite: item.fechaLimite, destinatario, paciente: `${paciente.nombres} ${paciente.apellidos}`, mensaje: MENSAJES[item.estado](item.vacunaNombre, item.nombreDosis), estado: item.estado });
+      await notificacionService.enviarAlertaVacuna({ pacienteId, dosisId: item.dosisId, fechaLimite: item.fechaLimite, destinatario, paciente: `${paciente.nombres} ${paciente.apellidos}`, mensaje, estado: item.estado });
     }
   }
 

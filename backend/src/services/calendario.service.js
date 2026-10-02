@@ -24,18 +24,21 @@ function validarRegla(data) {
  if(r.maxMesesExclusivo!=null && (!Number.isInteger(r.maxMesesExclusivo) || r.maxMesesExclusivo<=r.minMeses || r.maxMesesExclusivo>1800))throw new CalendarioError('La edad máxima debe superar la mínima');
  if(!validarEdadesPorSexo(r.edadesPorSexo))throw new CalendarioError('Defina rangos de edad válidos para al menos un sexo registrado');
  if(r.tipo==='campana' && (!esFechaISOValida(r.inicio) || !esFechaISOValida(r.fin) || r.fin<r.inicio || !territorios.includes(r.territorio)))throw new CalendarioError('La campaña requiere fechas válidas y territorio');
+ if(r.grupoEtario!==undefined&&!['todos','menor','adulto','adulto_mayor'].includes(r.grupoEtario))throw new CalendarioError('Seleccione un grupo etario válido');
  const p=r.programacion;
- if(!p || !['nacimiento','contacto','dosis_previa'].includes(p.base))throw new CalendarioError('Seleccione el origen de la programación');
+ if(!p || !['nacimiento','contacto','dosis_previa','ultima_aplicacion','campana'].includes(p.base))throw new CalendarioError('Seleccione el origen de la programación');
+ if(p.base==='campana'&&r.tipo!=='campana')throw new CalendarioError('La programación por campaña requiere una campaña temporal');
+ if(p.base==='ultima_aplicacion'&&(!Number.isInteger(p.valor)||p.valor<1||p.valor>10000||!unidades.includes(p.unidad)||!['contacto',undefined].includes(p.sinAntecedente)))throw new CalendarioError('Defina el intervalo del refuerzo recurrente');
  if(p.base==='dosis_previa' && (!Number.isInteger(p.dosisId) || p.dosisId<=0 || !Number.isInteger(p.valor) || p.valor<1 || p.valor>10000 || !unidades.includes(p.unidad)))throw new CalendarioError('Defina la dosis anterior y su intervalo');
  if(p.permitirOtraVacuna!==undefined && typeof p.permitirOtraVacuna!=='boolean')throw new CalendarioError('Indique si el antecedente puede pertenecer a otra vacuna');
  if(!Number.isInteger(data.edadValor) || data.edadValor<0 || data.edadValor>60000 || !unidades.includes(data.edadUnidad))throw new CalendarioError('Edad recomendada inválida');
  if(!Number.isInteger(data.toleranciaDias) || data.toleranciaDias<0 || data.toleranciaDias>3650)throw new CalendarioError('Margen de seguimiento inválido');
  normalizarLimitesEstrictos(data);
  if(!Number.isInteger(data.version) || data.version<0)throw new CalendarioError('Versión de calendario inválida');
- return {tipo:r.tipo,fuente:r.fuente.trim(),habilitada:r.habilitada,minMeses:r.minMeses,maxMesesExclusivo:r.maxMesesExclusivo??null,
+ return {tipo:r.tipo,fuente:r.fuente.trim(),habilitada:r.habilitada,minMeses:r.minMeses,maxMesesExclusivo:r.maxMesesExclusivo??null,...(r.grupoEtario?{grupoEtario:r.grupoEtario}:{}),
  ...(r.edadesPorSexo!==undefined?{edadesPorSexo:Object.fromEntries(Object.entries(r.edadesPorSexo).map(([sexo,rango])=>[sexo,{minMeses:rango.minMeses,maxMesesExclusivo:rango.maxMesesExclusivo}]))}:{}),
  ...(r.tipo==='campana'?{inicio:r.inicio,fin:r.fin,territorio:r.territorio}:{}),
- programacion:p.base==='dosis_previa'?{base:p.base,dosisId:p.dosisId,valor:p.valor,unidad:p.unidad,...(p.permitirOtraVacuna===true?{permitirOtraVacuna:true}:{})}:{base:p.base}};
+ programacion:p.base==='dosis_previa'?{base:p.base,dosisId:p.dosisId,valor:p.valor,unidad:p.unidad,...(p.permitirOtraVacuna===true?{permitirOtraVacuna:true}:{})}:p.base==='ultima_aplicacion'?{base:p.base,valor:p.valor,unidad:p.unidad,...(p.sinAntecedente==='contacto'?{sinAntecedente:'contacto'}:{})}:{base:p.base}};
 }
 async function guardar(id,data,actor={}) {
  const regla=validarRegla(data),limites=normalizarLimitesEstrictos(data);

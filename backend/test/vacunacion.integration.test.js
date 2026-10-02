@@ -93,3 +93,12 @@ test('edad máxima estricta se revalida en la transacción y no consume stock',(
  const [[stock]]=await c.query('SELECT cantidad_disponible FROM lotes_vacuna WHERE id=?',[lote]);assert.equal(stock.cantidad_disponible,2);
  const [[hist]]=await c.query('SELECT COUNT(*) n FROM historial_vacunacion WHERE paciente_id=?',[data.pacienteId]);assert.equal(hist.n,0);
 }));
+test('refuerzo recurrente permite otra aplicación al cumplir diez años',()=>isolated(async(c,data,lote)=>{
+ const item=data.dosisAplicadas[0];
+ await c.query('UPDATE dosis SET regla_calendario=? WHERE id=?',[JSON.stringify({tipo:'regular',minMeses:216,grupoEtario:'adulto',fuente:'fixture',programacion:{base:'ultima_aplicacion',valor:10,unidad:'anios',sinAntecedente:'contacto'}}),item.dosisId]);
+ await c.query("INSERT INTO historial_vacunacion(paciente_id,dosis_id,usuario_id,fecha_aplicacion,origen,documento_referencia,establecimiento) VALUES (?,?,?,'2016-10-01','externo','Carnet previo','Otro establecimiento')",[data.pacienteId,item.dosisId,data.usuarioId]);
+ data.dosisAplicadas=[item];
+ const result=await registrarCita(data);assert.equal(result.dosisAplicadas.length,1);
+ const [[cantidad]]=await c.query('SELECT COUNT(*) n FROM historial_vacunacion WHERE paciente_id=? AND dosis_id=?',[data.pacienteId,item.dosisId]);assert.equal(cantidad.n,2);
+ const [[stock]]=await c.query('SELECT cantidad_disponible FROM lotes_vacuna WHERE id=?',[lote]);assert.equal(stock.cantidad_disponible,1);
+}));

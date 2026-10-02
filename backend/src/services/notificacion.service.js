@@ -38,8 +38,7 @@ async function vigente(db,row){
   if(isoCivil(sumarEdad(programacion.fecha,alcance.tolerancia_dias,'dias'))!==row.fecha_limite)return false;
  }
  const [[actual]]=await db.query(`SELECT a.mensaje,a.fecha_limite FROM alertas a JOIN pacientes p ON p.id=a.paciente_id
- WHERE a.paciente_id=? AND a.dosis_id=? AND p.estado='activo'
- AND NOT EXISTS(SELECT 1 FROM historial_vacunacion h WHERE h.paciente_id=p.id AND h.dosis_id=a.dosis_id)`,[row.paciente_id,row.dosis_id]);
+ WHERE a.paciente_id=? AND a.dosis_id=? AND p.estado='activo'`,[row.paciente_id,row.dosis_id]);
  return actual && actual.mensaje===row.mensaje && actual.fecha_limite===row.fecha_limite;
 }
 async function procesarPendientes(){
@@ -106,7 +105,7 @@ async function enviarWhatsApp(payload) {
 }
 
 async function procesarAlertasWhatsApp(){
- const [alertas]=await pool.query(`SELECT a.id,a.paciente_id,a.fecha_limite,a.estado_dosis,
+ const [alertas]=await pool.query(`SELECT a.id,a.paciente_id,a.fecha_limite,a.estado_dosis,a.tipo_alerta,
    p.nombres,p.apellidos,p.fecha_nacimiento,p.telefono_contacto,p.contacto_alertas,p.es_dependiente,
    p.registro_pendiente,p.identidad_provisional,v.nombre vacuna_nombre,d.nombre_dosis
    FROM alertas a JOIN pacientes p ON p.id=a.paciente_id
@@ -116,7 +115,8 @@ async function procesarAlertasWhatsApp(){
  for(const alerta of alertas){
   const tutores=await pacienteModel.findTutoresByPacienteId(alerta.paciente_id);
   const telefono=normalizarTelefono(resolverContactoPaciente(alerta,tutores).telefono);
-  const mensaje=`HMGU informa: ${alerta.nombres} ${alerta.apellidos} tiene ${alerta.vacuna_nombre} (${alerta.nombre_dosis}) en estado ${alerta.estado_dosis}. Fecha límite: ${alerta.fecha_limite}. Hospital Materno Germán Urquidi.`;
+  const recomendacion=alerta.tipo_alerta==='recomendacion_campana'?'Recomendación de Campaña':alerta.tipo_alerta==='recomendacion_refuerzo'?'Recomendación de Refuerzo':`Estado ${alerta.estado_dosis}`;
+  const mensaje=`HMGU informa: ${recomendacion} para ${alerta.nombres} ${alerta.apellidos}: ${alerta.vacuna_nombre} (${alerta.nombre_dosis}). Fecha de referencia: ${alerta.fecha_limite}. Hospital Materno Germán Urquidi.`;
   if(telefono){
    const [[previo]]=await pool.query(`SELECT id FROM notificacion_intentos WHERE canal='whatsapp' AND destinatario=? AND mensaje=? AND DATE(created_at)=CURDATE() LIMIT 1`,[telefono,mensaje]);
    if(previo){omitidos++;continue;}

@@ -40,11 +40,13 @@ async function registrarCita({ pacienteId, usuarioId, fechaHora, observaciones, 
       }
       if (lote.estado !== 'activo' || Boolean(lote.vencido) || lote.cantidad_disponible < 1) throw new CitaError('El lote está vencido, inactivo o sin stock', 409);
       const [[duplicada]] = await connection.query('SELECT id FROM historial_vacunacion WHERE paciente_id = ? AND dosis_id = ? FOR UPDATE', [pacienteId, item.dosisId]);
-      if (duplicada) throw new CitaError('Esta dosis ya fue registrada previamente para el paciente', 409);
+      const [[dosis]]=await connection.query('SELECT * FROM dosis WHERE id=?',[item.dosisId]);
+      let regla=null;try{regla=typeof dosis.regla_calendario==='string'?JSON.parse(dosis.regla_calendario):dosis.regla_calendario;}catch{}
+      const recurrente=['ultima_aplicacion','campana'].includes(regla?.programacion?.base);
+      if (duplicada&&!recurrente) throw new CitaError('Esta dosis ya fue registrada previamente para el paciente', 409);
       const fecha=item.fechaAplicacion||paciente.hoy;
       if(fecha>paciente.hoy)throw new CitaError('La fecha de aplicación no puede ser futura');
       if(fecha>lote.fecha_vencimiento)throw new CitaError('La aplicación no puede ser posterior al vencimiento del lote');
-      const [[dosis]]=await connection.query('SELECT * FROM dosis WHERE id=?',[item.dosisId]);
       const [historial]=await connection.query('SELECT dosis_id,fecha_aplicacion FROM historial_vacunacion WHERE paciente_id=?',[pacienteId]);
       await validarAplicacion(connection,paciente,dosis,fecha,historial);
       const [aplicacion] = await connection.query(

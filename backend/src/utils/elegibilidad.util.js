@@ -12,6 +12,22 @@ function validarEdadesPorSexo(rangos) {
    (r.maxMesesExclusivo===null || (Number.isInteger(r.maxMesesExclusivo) && r.maxMesesExclusivo>r.minMeses && r.maxMesesExclusivo<=1800));
  });
 }
+function grupoPaciente(fechaNacimiento,referencia=new Date()){
+ const nacimiento=fechaCivil(fechaNacimiento),hoy=fechaCivil(referencia);
+ if(hoy<sumarEdad(nacimiento,18,'anios'))return 'menor';
+ if(hoy<sumarEdad(nacimiento,60,'anios'))return 'adulto';
+ return 'adulto_mayor';
+}
+function grupoPermitido(regla,paciente,referencia){
+ let grupo=regla.grupoEtario;
+ if(!grupo){
+  if(regla.maxMesesExclusivo!=null&&regla.maxMesesExclusivo<=216)grupo='menor';
+  else if(regla.minMeses>=216)grupo='adulto';
+  else grupo='todos';
+ }
+ const actual=grupoPaciente(paciente.fecha_nacimiento,referencia);
+ return grupo==='todos'||grupo===actual||(grupo==='adulto'&&actual==='adulto_mayor');
+}
 // Evalúa el alcance de una regla, no determina contraindicaciones clínicas.
 function evaluarAlcance(paciente, dosis, referencia = new Date()) {
  const nacimiento = fechaCivil(paciente.fecha_nacimiento), hoy = fechaCivil(referencia);
@@ -23,6 +39,8 @@ function evaluarAlcance(paciente, dosis, referencia = new Date()) {
  if (regla?.habilitada === false) return 'revision';
  if (!regla) return hoy >= sumarEdad(nacimiento,18,'anios') ? 'revision' : null;
  if (!['regular','campana'].includes(regla.tipo) || !regla.fuente) return 'revision';
+ if(!['todos','menor','adulto','adulto_mayor',undefined].includes(regla.grupoEtario))return 'revision';
+ if(!grupoPermitido(regla,paciente,referencia))return 'fuera_alcance';
  if (!validarEdadesPorSexo(regla.edadesPorSexo)) return 'revision';
  if (regla.edadesPorSexo!==undefined && !['F','M'].includes(paciente.sexo)) return 'revision';
  if (regla.tipo === 'campana') {
@@ -52,4 +70,4 @@ function evaluarAlcance(paciente, dosis, referencia = new Date()) {
  }
  return null;
 }
-module.exports = { evaluarAlcance, validarEdadesPorSexo };
+module.exports = { evaluarAlcance, validarEdadesPorSexo, grupoPaciente, grupoPermitido };

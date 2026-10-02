@@ -3,7 +3,7 @@ const {smtp}=require('../config/env');
 async function main(){
  try{
   await pool.query('SELECT 1');console.log('OK: conexión a MySQL');
-  const esperadas={pacientes:['departamento','es_dependiente','identidad_provisional','registro_pendiente','contacto_alertas'],paciente_tutor:['estado'],dosis:['regla_calendario','edad_recomendada_valor','edad_recomendada_unidad'],historial_vacunacion:['origen','documento_referencia'],notificaciones_email:['estado'],notificacion_intentos:['resultado']};
+  const esperadas={pacientes:['departamento','es_dependiente','identidad_provisional','registro_pendiente','contacto_alertas'],paciente_tutor:['estado'],dosis:['regla_calendario','edad_recomendada_valor','edad_recomendada_unidad'],historial_vacunacion:['origen','documento_referencia'],alertas:['estado_dosis','tipo_alerta'],notificaciones_email:['estado'],notificacion_intentos:['resultado']};
   let errores=0;
   for(const [tabla,columnas] of Object.entries(esperadas)){
    const [rows]=await pool.query('SELECT COLUMN_NAME nombre FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=?',[tabla]);

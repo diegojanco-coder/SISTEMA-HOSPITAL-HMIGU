@@ -55,9 +55,13 @@ function evaluarEsquema(paciente, catalogoDosis, historial, fechaReferencia = ne
   const aplicadasPorDosisId = new Map(historial.map((h) => [h.dosis_id, h]));
 
   const detalle = catalogoDosis.map((dosis) => {
-    const registroAplicado = aplicadasPorDosisId.get(dosis.id);
-
-
+    let regla=null;
+    try {regla=typeof dosis.regla_calendario==='string'?JSON.parse(dosis.regla_calendario):dosis.regla_calendario;} catch {}
+    const recurrente=regla?.programacion?.base==='ultima_aplicacion'||regla?.programacion?.base==='campana';
+    const ultimoRegistro = aplicadasPorDosisId.get(dosis.id);
+    const registroAplicado = regla?.programacion?.base==='campana'
+      ? historial.filter(h=>h.dosis_id===dosis.id&&h.fecha_aplicacion>=regla.inicio&&h.fecha_aplicacion<=regla.fin).at(-1)
+      : recurrente ? null : ultimoRegistro;
     const fechaNacimiento = fechaCivil(paciente.fecha_nacimiento);
     const programacion = programarDosis(paciente, dosis, historial);
     const fechaRecomendada = programacion.fecha || null;
@@ -69,8 +73,6 @@ function evaluarEsquema(paciente, catalogoDosis, historial, fechaReferencia = ne
         tolerancia_dias: Number(dosis.tolerancia_dias)
       }, false).estado;
     }
-    let regla=null;
-    try {regla=typeof dosis.regla_calendario==='string'?JSON.parse(dosis.regla_calendario):dosis.regla_calendario;} catch {}
     const alcance = evaluarAlcance(paciente, dosis, fechaReferencia);
     if (!registroAplicado) estado = alcance || estado;
     const hoy=fechaCivil(fechaReferencia);
@@ -78,7 +80,7 @@ function evaluarEsquema(paciente, catalogoDosis, historial, fechaReferencia = ne
 
     return {
       dosisId: dosis.id,
-      registrable: !registroAplicado && alcance === null && regla?.programacion?.base === 'contacto',
+      registrable: !registroAplicado && alcance === null && (regla?.programacion?.base === 'contacto'||programacion.contacto===true),
       seleccionable: !registroAplicado && alcance !== 'bloqueada_por_edad',
       dentroAlcance: alcance === null && !programacion.revision,
       vacunaId: dosis.vacuna_id,
@@ -86,13 +88,15 @@ function evaluarEsquema(paciente, catalogoDosis, historial, fechaReferencia = ne
       vacunaNombreCorto: dosis.vacuna_nombre_corto,
       numeroDosis: dosis.numero_dosis,
       nombreDosis: dosis.nombre_dosis,
+      recurrente,
+      tipoAlerta: regla?.programacion?.base==='campana'?'recomendacion_campana':regla?.programacion?.base==='ultima_aplicacion'?'recomendacion_refuerzo':'calendario',
       estado,
       diasRetraso,
       motivoBloqueo: estado === 'bloqueada_por_edad' ? `Supera la edad máxima estricta de ${dosis.edad_maxima_dias} días` : null,
       fechaRecomendada: fechaRecomendada ? isoCivil(fechaRecomendada) : null,
       fechaLimite: fechaLimite ? isoCivil(fechaLimite) : null,
-      fechaAplicacion: registroAplicado ? registroAplicado.fecha_aplicacion : null,
-      lote: registroAplicado ? registroAplicado.lote : null
+      fechaAplicacion: (registroAplicado||ultimoRegistro)?.fecha_aplicacion || null,
+      lote: (registroAplicado||ultimoRegistro)?.lote || null
     };
   });
 

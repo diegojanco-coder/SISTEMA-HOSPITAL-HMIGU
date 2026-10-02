@@ -11,9 +11,10 @@ async function validarAplicacion(db,paciente,dosis,fecha,historial) {
   const alcance=evaluarAlcance(paciente,dosis,referencia);
   if(alcance==='bloqueada_por_edad')throw new AplicacionError('No elegible: supera la edad máxima estricta permitida para esta dosis');
   if(alcance)throw new AplicacionError('La dosis está fuera del alcance o requiere revisión del calendario');
-  if(regla.programacion?.base!=='contacto'){
+  if(!['contacto','campana'].includes(regla.programacion?.base)){
    const programada=programarDosis(paciente,dosis,historial);
    if(programada.revision)throw new AplicacionError('Falta el antecedente necesario para programar esta dosis');
+   if(programada.contacto)return;
    if(fecha<isoCivil(programada.fecha))throw new AplicacionError('La fecha no cumple la edad o el intervalo configurado');
   }
  }

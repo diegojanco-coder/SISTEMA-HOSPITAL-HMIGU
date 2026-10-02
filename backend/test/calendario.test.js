@@ -144,3 +144,29 @@ test('motor excluye aplicadas de dosis disponibles y conserva atrasadas seleccio
  assert.equal(resultado.dosisDisponibles[0].seleccionable,true);
  assert.ok(resultado.dosisDisponibles[0].diasRetraso>0);
 });
+test('adultos no reciben calendario infantil y adultos mayores pueden tener reglas propias',()=>{
+ const infantil={...dosis,regla_calendario:{tipo:'regular',fuente,minMeses:0,maxMesesExclusivo:60,grupoEtario:'menor',programacion:{base:'nacimiento'}}};
+ const adulto={...dosis,id:2,regla_calendario:{tipo:'regular',fuente,minMeses:216,grupoEtario:'adulto',programacion:{base:'contacto'}}};
+ const mayor={...dosis,id:3,regla_calendario:{tipo:'regular',fuente,minMeses:720,grupoEtario:'adulto_mayor',programacion:{base:'contacto'}}};
+ assert.equal(evaluarAlcance({fecha_nacimiento:'1990-01-01'},infantil,'2026-10-01'),'fuera_alcance');
+ assert.equal(evaluarAlcance({fecha_nacimiento:'1990-01-01'},adulto,'2026-10-01'),null);
+ assert.equal(evaluarAlcance({fecha_nacimiento:'1950-01-01'},adulto,'2026-10-01'),null);
+ assert.equal(evaluarAlcance({fecha_nacimiento:'1990-01-01'},mayor,'2026-10-01'),'fuera_alcance');
+ assert.equal(evaluarAlcance({fecha_nacimiento:'1950-01-01'},mayor,'2026-10-01'),null);
+});
+test('Td recurrente calcula diez años desde la última aplicación',()=>{
+ const td={...dosis,vacuna_id:10,vacuna_nombre:'Toxoide Tetánico',regla_calendario:{tipo:'regular',fuente,minMeses:216,grupoEtario:'adulto',programacion:{base:'ultima_aplicacion',valor:10,unidad:'anios',sinAntecedente:'contacto'}}};
+ const p={fecha_nacimiento:'1980-01-01'};
+ const primera=evaluarEsquema(p,[td],[],new Date('2026-10-01T12:00:00')).detalle[0];
+ assert.equal(primera.registrable,true);assert.equal(primera.tipoAlerta,'recomendacion_refuerzo');
+ const refuerzo=evaluarEsquema(p,[td],[{dosis_id:td.id,fecha_aplicacion:'2016-10-01'}],new Date('2026-09-15T12:00:00')).detalle[0];
+ assert.equal(refuerzo.fechaRecomendada,'2026-10-01');assert.equal(refuerzo.estado,'proxima');assert.equal(refuerzo.recurrente,true);
+});
+test('influenza estacional usa el inicio de campaña y permite una aplicación por temporada',()=>{
+ const flu={...dosis,vacuna_id:11,vacuna_nombre:'Influenza',regla_calendario:{tipo:'campana',fuente,minMeses:720,grupoEtario:'adulto_mayor',inicio:'2026-04-01',fin:'2026-08-31',territorio:'Bolivia',programacion:{base:'campana'}}};
+ const p={fecha_nacimiento:'1950-01-01'};
+ const previa=evaluarEsquema(p,[flu],[{dosis_id:flu.id,fecha_aplicacion:'2025-05-01'}],new Date('2026-04-01T12:00:00')).detalle[0];
+ assert.equal(previa.fechaRecomendada,'2026-04-01');assert.equal(previa.estado,'pendiente');assert.equal(previa.tipoAlerta,'recomendacion_campana');
+ const actual=evaluarEsquema(p,[flu],[{dosis_id:flu.id,fecha_aplicacion:'2026-05-01'}],new Date('2026-06-01T12:00:00')).detalle[0];
+ assert.equal(actual.estado,'aplicada');
+});

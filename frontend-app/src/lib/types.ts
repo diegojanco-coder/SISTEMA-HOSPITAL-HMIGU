@@ -60,9 +60,10 @@ export interface Paciente {
 
 export interface ReglaCalendario {
  tipo: 'regular' | 'campana'; fuente: string; habilitada?: boolean; version?: number;
+ grupoEtario?: 'todos' | 'menor' | 'adulto' | 'adulto_mayor';
  minMeses: number; maxMesesExclusivo?: number | null; inicio?: string; fin?: string; territorio?: string;
  edadesPorSexo?: Partial<Record<'F' | 'M', {minMeses: number; maxMesesExclusivo: number | null}>>;
- programacion?: {base: 'nacimiento' | 'contacto' | 'dosis_previa'; dosisId?: number; valor?: number; unidad?: string; permitirOtraVacuna?: boolean};
+ programacion?: {base: 'nacimiento' | 'contacto' | 'dosis_previa' | 'ultima_aplicacion' | 'campana'; dosisId?: number; valor?: number; unidad?: string; permitirOtraVacuna?: boolean; sinAntecedente?: 'contacto'};
 }
 export interface Dosis {
  regla_calendario?: ReglaCalendario | null;
@@ -103,6 +104,8 @@ export interface EsquemaDetalleItem {
   numeroDosis: number;
   nombreDosis: string;
   estado: EstadoDosis;
+  recurrente?: boolean;
+  tipoAlerta?: 'calendario' | 'recomendacion_refuerzo' | 'recomendacion_campana';
   diasRetraso?: number;
   motivoBloqueo?: string | null;
   fechaRecomendada: string | null;
@@ -145,6 +148,7 @@ export interface Alerta {
   paciente_id: number;
   dosis_id: number;
   estado_semaforo: 'verde' | 'amarillo' | 'rojo';
+  tipo_alerta?: 'calendario' | 'recomendacion_refuerzo' | 'recomendacion_campana';
   fecha_limite: string;
   mensaje: string;
   leida: number;

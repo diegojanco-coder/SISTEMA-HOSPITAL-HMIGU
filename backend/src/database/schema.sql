@@ -222,7 +222,6 @@ CREATE TABLE historial_vacunacion (
     observaciones       TEXT          NULL,
     created_at          DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at          DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    CONSTRAINT uq_historial_paciente_dosis UNIQUE (paciente_id, dosis_id),
     CONSTRAINT ck_historial_documento CHECK ((origen='local' AND documento_referencia IS NULL) OR (origen='externo' AND documento_referencia IS NOT NULL AND CHAR_LENGTH(TRIM(documento_referencia))>0)),
     CONSTRAINT fk_historial_paciente FOREIGN KEY (paciente_id) REFERENCES pacientes(id)
         ON DELETE RESTRICT ON UPDATE CASCADE,
@@ -238,6 +237,7 @@ CREATE TABLE historial_vacunacion (
 
 CREATE INDEX idx_historial_fecha ON historial_vacunacion (fecha_aplicacion);
 CREATE INDEX idx_historial_paciente ON historial_vacunacion (paciente_id);
+CREATE INDEX idx_historial_paciente_dosis ON historial_vacunacion (paciente_id, dosis_id);
 
 -- ---------------------------------------------------------------------
 -- Tabla: alertas (semáforo verde/amarillo/rojo)
@@ -248,6 +248,7 @@ CREATE TABLE alertas (
     dosis_id            INT UNSIGNED  NOT NULL,
     estado_semaforo     ENUM('verde','amarillo','rojo') NOT NULL,
     estado_dosis        ENUM('proxima','pendiente','atrasada') NULL,
+    tipo_alerta         ENUM('calendario','recomendacion_refuerzo','recomendacion_campana') NOT NULL DEFAULT 'calendario',
     fecha_limite        DATE          NOT NULL,
     mensaje             VARCHAR(255)  NOT NULL,
     leida               TINYINT(1)    NOT NULL DEFAULT 0,
