@@ -53,13 +53,13 @@ export default function Alertas() {
           <div className="mt-3 flex flex-wrap gap-4 text-sm">{[['pendiente', 'Pendientes'], ['enviado', 'Enviados'], ['error', 'Con error'], ['sin_destinatario', 'Sin correo de contacto']].map(([estado, label]) => <p key={estado}>{label}: <strong>{correos.estados.find(e => e.estado === estado)?.total || 0}</strong></p>)}</div></>}
       </section>}
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h3 className="text-2xl font-bold text-foreground" style={fontHeading}>Sistema de Alertas</h3>
           <p className="text-muted-foreground" style={fontBody}>{atrasadasCalendario.length} atrasadas • {proximasCalendario.length} próximas/pendientes • {recomendaciones.length} recomendaciones</p>
         </div>
         {esAdmin && (
-          <button onClick={onRecalcular} disabled={recalculando} className="flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground text-white font-semibold hover:opacity-90 transition-transform shadow-lg disabled:opacity-60">
+          <button onClick={onRecalcular} disabled={recalculando} className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 font-semibold text-primary-foreground shadow-lg transition-transform hover:opacity-90 disabled:opacity-60 sm:w-auto">
             <Bell className="w-5 h-5" /> {recalculando ? 'Recalculando...' : 'Recalcular Alertas'}
           </button>
         )}
@@ -90,15 +90,15 @@ export default function Alertas() {
         <div className="space-y-3">
           {!cargando && atrasadasCalendario.length === 0 && <p className="text-sm text-muted-foreground">No hay vacunas atrasadas. ¡Buen trabajo!</p>}
           {atrasadasCalendario.map((a) => (
-            <div key={a.id} className="flex items-start gap-4 p-4 rounded-lg bg-red-50 border border-red-200">
+            <div key={a.id} className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 sm:gap-4">
               <div className="w-3 h-3 mt-1.5 rounded-full bg-red-500 flex-shrink-0 animate-pulse" />
               <div className="flex-1">
-                <div className="flex items-start justify-between mb-2">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <p className="font-bold text-foreground" style={fontBody}>{a.nombres} {a.apellidos} <span className="text-muted-foreground font-normal">({a.codigo_paciente})</span></p>
                     <p className="text-red-700 font-semibold" style={fontBody}>{a.vacuna_nombre} - {a.nombre_dosis}</p>
                   </div>
-                  <span className="text-xs font-bold text-red-700 bg-red-200 px-3 py-1 rounded-full">Límite: {a.fecha_limite}</span>
+                  <span className="w-fit rounded-full bg-red-200 px-3 py-1 text-xs font-bold text-red-700">Límite: {a.fecha_limite}</span>
                 </div>
               </div>
             </div>
@@ -117,12 +117,12 @@ export default function Alertas() {
             <div key={a.id} className="flex items-start gap-4 p-4 rounded-lg bg-yellow-50 border border-yellow-200">
               <div className="w-3 h-3 mt-1.5 rounded-full bg-yellow-500 flex-shrink-0" />
               <div className="flex-1">
-                <div className="flex items-start justify-between mb-2">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <p className="font-bold text-foreground" style={fontBody}>{a.nombres} {a.apellidos} <span className="text-muted-foreground font-normal">({a.codigo_paciente})</span></p>
                     <p className="text-yellow-700 font-semibold" style={fontBody}>{a.vacuna_nombre} - {a.nombre_dosis}</p>
                   </div>
-                  <span className="text-xs font-bold text-yellow-700 bg-yellow-200 px-3 py-1 rounded-full">Límite: {a.fecha_limite}</span>
+                  <span className="w-fit rounded-full bg-yellow-200 px-3 py-1 text-xs font-bold text-yellow-700">Límite: {a.fecha_limite}</span>
                 </div>
               </div>
             </div>

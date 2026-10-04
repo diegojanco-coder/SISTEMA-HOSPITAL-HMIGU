@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Plus, Search, X, Users, Syringe, AlertCircle } from 'lucide-react';
+import { Plus, Search, X, Users, Syringe, AlertCircle, ContactRound, PhoneCall, UserRoundCheck, ChevronRight } from 'lucide-react';
 import {
   listarPacientes,
   obtenerPaciente,
@@ -68,24 +68,38 @@ export default function Pacientes() {
   }
 
   const totalPaginas = Math.max(Math.ceil(total / limit), 1);
+  const conContacto = pacientes.filter(p => p.contacto_principal?.telefono || p.telefono_contacto).length;
+  const registrosCompletos = pacientes.filter(p => !p.registro_pendiente && !p.identidad_provisional).length;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h3 className="text-2xl font-bold text-foreground" style={fontHeading}>Gestión de Pacientes</h3>
-          <p className="text-muted-foreground" style={fontBody}>{total} pacientes registrados</p>
+          <p className="clinical-kicker mb-2">Consulta y seguimiento</p>
+          <h3 className="text-3xl font-extrabold text-foreground" style={fontHeading}>Pacientes</h3>
+          <p className="mt-1 text-sm text-muted-foreground" style={fontBody}>Encuentra una ficha, revisa el esquema y continúa la atención sin perder el contexto.</p>
         </div>
         <button
           onClick={() => setShowAddPatient(true)}
-          className="flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground text-white font-semibold hover:opacity-90 transition-transform shadow-lg"
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 font-semibold text-primary-foreground shadow-lg transition-transform hover:opacity-90 sm:w-auto"
         >
           <Plus className="w-5 h-5" />
           Nuevo Paciente
         </button>
       </div>
 
-      <div className="bg-card rounded-xl p-6 border border-border">
+      <div className="grid gap-3 sm:grid-cols-3">
+        {[
+          { label: 'Pacientes registrados', value: total, note: 'Fichas disponibles', icon: ContactRound },
+          { label: 'Con identidad verificada', value: registrosCompletos, note: `En esta página de ${pacientes.length}`, icon: UserRoundCheck },
+          { label: 'Con teléfono de contacto', value: conContacto, note: `En esta página de ${pacientes.length}`, icon: PhoneCall },
+        ].map(item => { const Icon = item.icon; return <article key={item.label} className="patient-summary-card">
+          <span className="grid h-10 w-10 place-items-center rounded-xl bg-secondary text-primary"><Icon className="h-5 w-5"/></span>
+          <span className="min-w-0"><span className="block text-2xl font-extrabold text-foreground">{cargando ? '—' : item.value}</span><span className="block text-xs font-bold text-foreground">{item.label}</span><span className="mt-0.5 block text-[10px] text-muted-foreground">{item.note}</span></span>
+        </article>; })}
+      </div>
+
+      <div className="clinical-panel p-4 sm:p-5">
         <div className="flex-1 relative">
           <Search className="w-5 h-5 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
           <input
@@ -118,8 +132,8 @@ export default function Pacientes() {
         </div>
       </div>
 
-      <div className="bg-card rounded-xl border border-border overflow-hidden">
-        <div className="overflow-x-auto">
+      <div className="clinical-panel overflow-hidden">
+        <div className="hidden overflow-x-auto md:block">
           <table className="w-full">
             <thead className="bg-muted border-b border-border">
               <tr>
@@ -155,8 +169,8 @@ export default function Pacientes() {
                   <td className="px-6 py-4 text-foreground" style={fontBody}>{p.contacto_principal?.telefono || p.telefono_contacto || '-'}</td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
-                      <button onClick={() => handleViewPatient(p)} className="px-4 py-2 rounded-lg bg-cyan-500 text-white text-sm font-medium hover:bg-cyan-600 transition-colors">Ver</button>
-                      <button onClick={() => handleEditPatient(p)} className="px-4 py-2 rounded-lg bg-muted text-foreground text-sm font-medium hover:bg-gray-200 transition-colors">Editar</button>
+                      <button onClick={() => handleViewPatient(p)} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:opacity-90">Ver ficha</button>
+                      <button onClick={() => handleEditPatient(p)} className="rounded-lg bg-muted px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary">Editar</button>
                     </div>
                   </td>
                 </tr>
@@ -165,13 +179,37 @@ export default function Pacientes() {
           </table>
         </div>
 
-        <div className="px-6 py-4 border-t border-border flex items-center justify-between">
+        <div className="divide-y divide-border md:hidden">
+          {cargando && <div className="p-8 text-center text-sm text-muted-foreground">Cargando pacientes...</div>}
+          {!cargando && pacientes.length === 0 && <div className="p-8 text-center text-sm text-muted-foreground">No se encontraron pacientes.</div>}
+          {!cargando && pacientes.map(p => <article key={p.id} className="p-4">
+            <button onClick={() => handleViewPatient(p)} className="flex w-full items-start gap-3 text-left">
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-secondary text-sm font-extrabold text-primary">{p.nombres.charAt(0)}{p.apellidos.charAt(0)}</span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-bold text-foreground">{p.nombres} {p.apellidos}</span>
+                <span className="mt-0.5 block text-[11px] text-muted-foreground">{p.codigo_paciente} · {p.edad_formateada}</span>
+                <span className="mt-2 flex flex-wrap gap-1.5">
+                  <span className="clinical-badge bg-secondary text-secondary-foreground">{p.sexo === 'M' ? 'Masculino' : 'Femenino'}</span>
+                  {!!p.registro_pendiente && <span className="clinical-badge bg-yellow-50 text-yellow-700">Prerregistro</span>}
+                  {!!p.identidad_provisional && <span className="clinical-badge bg-blue-50 text-blue-700">Identidad provisional</span>}
+                </span>
+              </span>
+              <ChevronRight className="mt-2 h-4 w-4 shrink-0 text-muted-foreground"/>
+            </button>
+            <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
+              <span className="text-xs text-muted-foreground">{p.contacto_principal?.telefono || p.telefono_contacto || 'Sin teléfono'}</span>
+              <button onClick={() => handleEditPatient(p)} className="rounded-lg px-3 py-1.5 text-xs font-bold text-primary hover:bg-secondary">Editar datos</button>
+            </div>
+          </article>)}
+        </div>
+
+        <div className="flex flex-col gap-3 border-t border-border px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <p className="text-sm text-muted-foreground" style={fontBody}>
             Mostrando página {page} de {totalPaginas} ({total} pacientes)
           </p>
-          <div className="flex items-center gap-2">
-            <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-muted transition-colors disabled:opacity-40">Anterior</button>
-            <button disabled={page >= totalPaginas} onClick={() => setPage((p) => p + 1)} className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-muted transition-colors disabled:opacity-40">Siguiente</button>
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
+            <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="rounded-lg border border-border px-4 py-2 text-muted-foreground transition-colors hover:bg-muted disabled:opacity-40">Anterior</button>
+            <button disabled={page >= totalPaginas} onClick={() => setPage((p) => p + 1)} className="rounded-lg border border-border px-4 py-2 text-muted-foreground transition-colors hover:bg-muted disabled:opacity-40">Siguiente</button>
           </div>
         </div>
       </div>
